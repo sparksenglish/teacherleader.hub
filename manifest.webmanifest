@@ -1,0 +1,10 @@
+{
+  "id": "/teacherleader.hub/",
+  "name": "TL Mastery",
+  "short_name": "TL Mastery",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f7f5",
+  "theme_color": "#1d4f39"
+}
