@@ -1147,6 +1147,7 @@ textarea.si-in{min-height:84px;resize:vertical}
   .si-dot{width:120px;height:120px;right:-55px;top:-60px}
   .si-dot2{display:none}
 }
+.tl-offline{background:var(--yellow-soft,#fdf4cf);color:var(--ink,#18261f);padding:10px 16px;font-size:14px;border-bottom:1px solid var(--line,#dde6e0)}.tl-offline .si-link{margin-left:6px}
 .tl-inst{position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:9999;padding:16px}
 .tl-inst-card{background:var(--card,#fff);color:var(--ink,#18261f);border-radius:16px;padding:20px 22px;max-width:420px;width:100%;display:grid;gap:10px;font-size:15px}
 .tl-inst-card ol{margin:0;padding-left:20px;display:grid;gap:6px}.tl-inst-card .si-btn{justify-self:start}
@@ -1557,6 +1558,30 @@ textarea.si-in{min-height:84px;resize:vertical}
   function renderParts(list) { qs.innerHTML = ''; (list || []).forEach(function (q, i) { var li = document.createElement('li'); li.innerHTML = '<span>' + (i + 1) + '</span>'; li.appendChild(document.createTextNode(q)); qs.appendChild(li); }); }
   renderParts(PARTS_PUBLIC);
 
+  /* ---- Saved copies on this device (IndexedDB: large, and separate from the small localStorage every app on the address shares).
+     Course, last data of each screen, start-up data for offline. Cleared on Sign out. ---- */
+  window.tlmStore = (function () {
+    var dbp = null;
+    function db() {
+      if (dbp) return dbp;
+      dbp = new Promise(function (res, rej) { try { var r = indexedDB.open('tlm_store', 1); r.onupgradeneeded = function () { r.result.createObjectStore('kv'); }; r.onsuccess = function () { res(r.result); }; r.onerror = function () { rej(r.error); }; } catch (e) { rej(e); } });
+      return dbp;
+    }
+    function tx(mode, fn) { return db().then(function (d) { return new Promise(function (res, rej) { var t = d.transaction('kv', mode), st = t.objectStore('kv'), out = fn(st); t.oncomplete = function () { res(out && out.result); }; t.onerror = function () { rej(t.error); }; }); }); }
+    return {
+      get: function (k) { return tx('readonly', function (st) { return st.get(k); }).catch(function () { return undefined; }); },
+      set: function (k, v) { return tx('readwrite', function (st) { st.put(v, k); }).catch(function () {}); },
+      clear: function () { return tx('readwrite', function (st) { st.clear(); }).catch(function () {}); }
+    };
+  })();
+  // Google's limits and hiccups, in plain words
+  window.tlmFriendly = function (m) {
+    m = String(m || '');
+    if (/Service invoked too many times|too many simultaneous|Rate Limit|quota/i.test(m)) return 'Google is busy right now (too many people at the same moment, or today\'s limit is used up). Wait a minute and try again. Your work on this screen is not lost.';
+    if (/Exceeded maximum execution time|timed? ?out|DEADLINE_EXCEEDED/i.test(m)) return 'This took too long on Google\'s side. Please try again.';
+    return m;
+  };
+
   /* ---- The app on GitHub Pages: the build sets window.TL_API_URL. Inside Apps Script (the old link) google.script.run exists and this block stays off. ---- */
   var PWA = !!(window.TL_API_URL && !(window.google && window.google.script && window.google.script.run));
   window.TL_IS_PWA = PWA;
@@ -1581,8 +1606,8 @@ textarea.si-in{min-height:84px;resize:vertical}
           var args = [].slice.call(arguments), later = function (f, v) { if (f) setTimeout(function () { f(v); }, 0); };
           fetch(window.TL_API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ fn: String(name), args: args }), redirect: 'follow', cache: 'no-store', credentials: 'omit' })
             .then(function (r) { if (!r.ok) throw new Error('Service unavailable (' + r.status + '). Please try again in a moment.'); return r.json(); })
-            .then(function (o) { if (o && o.ok) later(ok, o.data); else later(fail, new Error((o && o.error) || 'Something went wrong. Please try again.')); },
-                  function (e) { var m = String((e && e.message) || e); later(fail, new Error(/fetch|network|load failed/i.test(m) ? 'NetworkError: no connection to the server. Check your internet and try again.' : m)); });
+            .then(function (o) { if (o && o.ok) later(ok, o.data); else later(fail, new Error(window.tlmFriendly((o && o.error) || 'Something went wrong. Please try again.'))); },
+                  function (e) { var m = String((e && e.message) || e); later(fail, new Error(/fetch|network|load failed/i.test(m) ? 'NetworkError: no connection to the server. Check your internet and try again.' : window.tlmFriendly(m))); });
         };
       } });
     })(null, null);
@@ -1754,15 +1779,30 @@ textarea.si-in{min-height:84px;resize:vertical}
 
   function openApp(token) {
     show('loading');
-    run('loadApp', token).then(function (txt) {
-      var p = JSON.parse(txt); p.token = token; window.__P = p;
+    var store = window.tlmStore, saved = null;
+    store.get('content').then(function (c) { saved = c || null; return run('loadApp', token, saved && saved.ver ? saved.ver : ''); }).then(function (txt) {
+      var p = JSON.parse(txt); p.token = token;
+      if (p.data == null && saved && saved.ver === p.ver) p.data = saved.data;            // course unchanged: use the copy on this device
+      else if (p.data != null) store.set('content', { ver: p.ver, data: p.data });        // new or changed course: keep a copy
+      if (p.data == null) return store.set('content', null).then(function () { openApp(token); });   // copy missing: ask again for the full course
+      store.set('boot', { token: token, at: Date.now(), state: p.state, user: p.user, links: p.links, help: p.help, ver: p.ver });
+      window.__P = p;
       // the app code sits further down the page: when the server answers before the page has finished loading
       // (saved copy on a slow phone), wait for the whole page, or only half of the app code would run
       if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', function () { startApp(token); }, { once: true }); return; }
       startApp(token);
     }).catch(function (x) {
       var m = msgOf(x);
-      if (/NetworkError|Failed to fetch|Service unavailable|timed? ?out|DEADLINE_EXCEEDED/i.test(m) || navigator.onLine === false) { show('offline'); return; }
+      if (/NetworkError|Failed to fetch|Service unavailable|timed? ?out|DEADLINE_EXCEEDED|busy right now/i.test(m) || navigator.onLine === false) {
+        // no connection: open the copy saved on this device (same person), read-only for anything that needs the server
+        return Promise.all([store.get('boot'), store.get('content')]).then(function (r) {
+          var b = r[0], c = r[1];
+          if (b && b.token === token && c && c.data) {
+            window.__P = { token: token, data: c.data, state: b.state, user: b.user, links: b.links, help: b.help, ver: c.ver, offline: b.at };
+            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { startApp(token); }, { once: true }); else startApp(token);
+          } else show('offline');
+        });
+      }
       tokDel(); show('signin');
       if (!/SIGNED_OUT/.test(m)) err(m); else err('Please sign in again.');
     });
@@ -1772,13 +1812,25 @@ textarea.si-in{min-height:84px;resize:vertical}
       document.getElementById('signin').hidden = true;
       document.getElementById('app').hidden = false;
       var s = document.createElement('script'); s.textContent = document.getElementById('appcode').textContent; document.body.appendChild(s);
+      if (window.__P.offline) {
+        var bn = document.createElement('div'); bn.className = 'tl-offline'; bn.setAttribute('role', 'status');
+        bn.innerHTML = '<b>Offline.</b> You see the copy saved on ' + new Date(window.__P.offline).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + '. Your progress is kept on this device and sent when you are back online. <button type="button" class="si-link" data-reload>Reconnect</button>';
+        bn.querySelector('[data-reload]').addEventListener('click', function () { location.reload(); });
+        document.getElementById('app').prepend(bn);
+        window.addEventListener('online', function () { location.reload(); }, { once: true });
+      }
       run('getSlides', token).then(function (t) {
         var arr = JSON.parse(t); arr.forEach(function (x) { window.SCHED_SLIDES.push(x); });
         document.querySelectorAll('[data-slideimg]').forEach(function (i) { if (!i.getAttribute('src') && arr.length) i.src = arr[0].src; });
       }).catch(function () {});
     }
   }
-  window.tlmSignOut = function () { tokDel(); if (APP_URL) window.open(APP_URL, '_top'); else location.reload(); };
+  // Sign out: remove the sign-in and every saved copy on this device (shared phones and laptops)
+  window.tlmSignOut = function () {
+    tokDel();
+    try { Object.keys(localStorage).filter(function (k) { return /^tlm_(c_|pubcfg)/.test(k); }).forEach(function (k) { localStorage.removeItem(k); }); } catch (x) {}
+    window.tlmStore.clear().then(function () { if (APP_URL) window.open(APP_URL, '_top'); else location.reload(); });
+  };
   window.tlmSignedOut = function () { tokDel(); };
 
   var t = tokGet();
@@ -2054,19 +2106,37 @@ if (typeof SCHED_SLIDES === 'undefined') window.SCHED_SLIDES = [];
 /* ----- progress is saved to the sheet (and kept on this device as a backup) ----- */
 const SYNC_KEYS = ['tlm-done', 'tlm-started', 'tlm-heard', 'tlm-tests', 'tlm-pre', 'tlm-pops', 'tlm-gv', 'tlm-calib', 'tlm-fo'];
 const LSP = 'tlm_' + USER.email + '|';
-const _syncT = {};
+/* Progress: keys that change within 1.2 s are saved together in ONE call (saveStates), not one call per key. */
+const _syncPend = new Set(); let _syncT = null;
 function syncLater(k) {
-  clearTimeout(_syncT[k]);
-  _syncT[k] = setTimeout(() => {
-    if (!(window.google && google.script && google.script.run)) return;
+  if (k) _syncPend.add(k);
+  clearTimeout(_syncT);
+  _syncT = setTimeout(() => {
+    if (!(window.google && google.script && google.script.run) || !_syncPend.size) return;
+    const keys = [..._syncPend]; _syncPend.clear();
+    const map = {}; keys.forEach(x => { map[x] = STATE[x]; });
     setSaveNote('Saving…');
     google.script.run
       .withSuccessHandler(() => setSaveNote('Progress saved'))
-      .withFailureHandler(err => { if (/SIGNED_OUT/.test(String(err && err.message || err))) { setSaveNote('You are signed out. Please sign in again.', true); tlmSignedOut(); } else { setSaveNote('Not saved yet — check your internet. It will try again.', true); setTimeout(() => syncLater(k), 15000); } })
-      .saveState(TOKEN, k, STATE[k]);
+      .withFailureHandler(err => { if (/SIGNED_OUT/.test(String(err && err.message || err))) { setSaveNote('You are signed out. Please sign in again.', true); tlmSignedOut(); } else { keys.forEach(x => _syncPend.add(x)); setSaveNote('Not saved yet — check your internet. It will try again.', true); setTimeout(() => syncLater(), 15000); } })
+      .saveStates(TOKEN, JSON.stringify(map));
   }, 1200);
 }
 function setSaveNote(t, bad) { const el = document.getElementById('saveNote'); if (el) { el.textContent = t; el.classList.toggle('bad', !!bad); } }
+/* Help: who to contact (from the server after sign-in: Settings → help_email / help_whatsapp). */
+window.tlmHelp = function(){
+  const h = (window.__P && window.__P.help) || {}, box = document.createElement('div'); box.className = 'tl-inst';
+  box.innerHTML = `<div class="tl-inst-card" role="dialog" aria-modal="true" aria-label="Help"><b>Need help?</b>
+    <p style="margin:0">Something not working, a question about the LMS, or access for a new Teacher Leader:</p>
+    <ul style="margin:0;padding-left:20px;display:grid;gap:6px">
+      ${h.email ? `<li>E-mail the L&amp;D team: <a href="mailto:${esc(h.email)}?subject=${encodeURIComponent('TL Mastery: help')}">${esc(h.email)}</a></li>` : ''}
+      ${h.whatsapp ? `<li>Ask in the SVN WhatsApp group: <a href="${esc(h.whatsapp)}" target="_blank" rel="noopener">open the group</a></li>` : ''}
+    </ul>
+    <p class="muted small" style="margin:0">Tell us what you were doing and send a screenshot. LMS version ${esc(typeof TL_BUILD === 'string' ? TL_BUILD : '')}.</p>
+    <button type="button" class="si-btn">Close</button></div>`;
+  box.addEventListener('click', ev => { if (ev.target === box || ev.target.tagName === 'BUTTON') box.remove(); });
+  document.body.appendChild(box);
+};
 /* Device copies that never reached the sheet are sent once on load. */
 SYNC_KEYS.forEach(k => { if (STATE[k] == null) { try { const v = localStorage.getItem(LSP + k); if (v) { STATE[k] = v; syncLater(k); } } catch (e) {} } });
 
@@ -2076,7 +2146,7 @@ SYNC_KEYS.forEach(k => { if (STATE[k] == null) { try { const v = localStorage.ge
   if (side) {
     const who = document.createElement('div');
     who.className = 'who';
-    who.innerHTML = `<span class="eyebrow">Signed in</span><b>${esc(USER.name)}</b><span>${esc(USER.email)}</span><span id="saveNote" class="savenote" aria-live="polite"></span>${window.TL_IS_PWA && !window.tlmInstalled() ? '<button class="signout" id="tlInstallBtn" type="button" onclick="tlmInstall()">Install app</button>' : ''}<button class="signout" type="button" onclick="tlmSignOut()">Sign out</button>`;
+    who.innerHTML = `<span class="eyebrow">Signed in</span><b>${esc(USER.name)}</b><span>${esc(USER.email)}</span><span id="saveNote" class="savenote" aria-live="polite"></span><button class="signout" type="button" onclick="tlmHelp()">Help</button>${window.TL_IS_PWA && !window.tlmInstalled() ? '<button class="signout" id="tlInstallBtn" type="button" onclick="tlmInstall()">Install app</button>' : ''}<button class="signout" type="button" onclick="tlmSignOut()">Sign out</button>`;
     side.appendChild(who);
   }
   if (IS_ADMIN) { const t = document.getElementById('tab-team'); if (t) t.hidden = false; }
@@ -3020,14 +3090,25 @@ const today = () => parseD(S.today) || new Date();
 function toast(msg){ const t = document.createElement('div'); t.className='t2toast'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(), 3400); }
 async function copy(text){ try{ await navigator.clipboard.writeText(text); toast('Copied'); }catch(e){ const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy'); toast('Copied');}catch(_){toast('Select the text and copy it');} ta.remove(); } }
 /* Google sometimes times out for a moment (DEADLINE_EXCEEDED, "server error … reading from storage"). Read-only calls (get…) retry by themselves; write calls never retry (no double sends). */
-const TRANSIENT_RE = /DEADLINE_EXCEEDED|server error occurred|timed? ?out|Service invoked too many times|try again later|Service unavailable|internal error|Lock timeout|NetworkError|Failed to fetch/i;
+const TRANSIENT_RE = /DEADLINE_EXCEEDED|server error occurred|timed? ?out|Service invoked too many times|try again later|Service unavailable|internal error|Lock timeout|NetworkError|Failed to fetch|busy right now|took too long/i;
 function isTransient(e){ return TRANSIENT_RE.test(String((e && e.message) || e || '')); }
 function api1(fn, args){ const t0 = performance.now(), tt = window.tlTime || (() => {}); return new Promise((res, rej) => google.script.run.withSuccessHandler(v => { tt(fn, t0, true); res(v); }).withFailureHandler(e => { tt(fn, t0, false); rej(e); })[fn](TOKEN, ...args)); }
+/* Read-only screens (get…) keep their last answer on this device. No connection, or Google busy:
+   the screen opens from that copy with a note, instead of an error. Writes are never answered from a copy. */
+let _offNote = 0;
 function api(fn, ...args){
   if (!/^get/.test(fn)) return api1(fn, args);
+  const key = 'c:' + fn + '|' + JSON.stringify(args.slice(0, 3)).slice(0, 300), st = window.tlmStore;
+  const fromCopy = e => (st ? st.get(key) : Promise.resolve()).then(c => {
+    if (!c || c.token !== TOKEN) return Promise.reject(e);
+    if (Date.now() - _offNote > 20000) { _offNote = Date.now(); toast('No connection to the server — showing what was saved on ' + new Date(c.at).toLocaleString('en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })); }
+    return c.v;
+  });
+  if (window.__P && window.__P.offline) return api1(fn, args).catch(fromCopy);
   const wait = [1500, 4000];
   const go = n => api1(fn, args).catch(e => (n < wait.length && isTransient(e)) ? new Promise(r => setTimeout(r, wait[n])).then(() => go(n + 1)) : Promise.reject(e));
-  return go(0);
+  return go(0).then(v => { if (st && typeof v === 'string' && v.length < 4e6) st.set(key, { token: TOKEN, at: Date.now(), v }); return v; },
+    e => isTransient(e) ? fromCopy(e) : Promise.reject(e));
 }
 function loadErrHtml(err, act, setupHint){
   const m = String(err || '');
@@ -6072,7 +6153,7 @@ document.addEventListener('change', e => {
 /* ===================== TEACHER PERFORMANCE (L&D overview, all centers) ===================== */
 /* For the people in Settings → performance_dashboard_emails (and admins): every teacher in every center —
    latest FO and trend, FO coverage (TL compliance), role-play readiness, PIP and renewal — per center and per teacher. */
-const TL_BUILD = 'v14.39 · 27 Nov 2026';
+const TL_BUILD = 'v14.40 · 27 Nov 2026';
 /* L&D can preview the page exactly as a center team sees it (same filtering the server does for a TL / CM). */
 function perfMode(){ return PERF.preview || PERF.scope === 'center' ? 'center' : 'all'; }
 function perfMine(){ return PERF.preview ? [PERF.preview] : (PERF.myCenters || []); }
