@@ -187,7 +187,24 @@ button.lrow:hover{border-color:var(--green);background:var(--green-soft)}
 .stage{position:relative;height:380px;overflow:auto;border-radius:12px;background:var(--bg);padding:16px;scroll-behavior:smooth}
 .stage-title{font-weight:600;margin-bottom:10px}
 .stage .flow{overflow:visible;width:max-content;padding-bottom:6px}
-.stage.hz{height:auto;min-height:230px;max-height:440px}
+.stage.hz{height:auto;min-height:0;max-height:none;overflow:visible}
+/* flowcharts fit the page (no sideways scrolling): numbered cards in rows, read in number order */
+.flow{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;overflow:visible;padding:4px 2px 6px}
+.flow .arw{display:none}.flow .node{width:auto;min-width:0}
+.stage .flow{width:auto}
+/* step page: the whole step in one minute; lesson end: what comes next */
+.readfirst{border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:12px 14px;margin:0 0 14px}
+.readfirst>summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.readfirst>summary::-webkit-details-marker{display:none}
+.readfirst>summary b{font-size:15px}.readfirst>summary small{color:var(--muted);font-size:12.5px}
+.story{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:8px}
+.story li{display:grid;grid-template-columns:24px 1fr;gap:10px;align-items:start;font-size:14px}
+.story .sn{width:24px;height:24px;border-radius:50%;background:var(--green-soft);color:var(--green-ink);font-size:12.5px;font-weight:600;display:grid;place-items:center}
+.story li.ok .sn{background:var(--green);color:var(--on-green)}
+.story b{display:block;font-weight:600}.story span.m{color:var(--muted)}
+.lnextcard{display:flex;align-items:center;justify-content:space-between;gap:14px;border-left:4px solid var(--yellow)}
+.lnextcard b{display:block;font-size:16px;margin-top:2px}.lnextcard p{margin:4px 0 0;color:var(--muted);font-size:14px}
+@media (max-width:640px){.lnextcard{flex-direction:column;align-items:stretch}}
 .stage [data-step]{transition:opacity .35s, transform .35s, box-shadow .35s}
 .stage .future{opacity:.35}
 .stage .past{opacity:.75}
@@ -290,6 +307,12 @@ body{margin:0}
 /* --- course overview --- */
 .hero.intro .hl{max-width:34ch}
 .hero .hsub{position:relative;margin:10px 0 0;color:var(--hero-soft);max-width:52ch}
+/* lesson main point: calm card, the sentence reads first */
+.mainpt{display:grid;grid-template-columns:36px 1fr;gap:14px;align-items:start;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--green);border-radius:14px;padding:18px 20px}
+.mainpt .mp-ic{width:36px;height:36px;border-radius:10px;background:var(--green-soft);color:var(--green-ink);display:grid;place-items:center}
+.mainpt .eyebrow{color:var(--green-ink)}
+.mainpt .mp-t{margin:6px 0 0;font-size:18px;font-weight:500;line-height:1.55;color:var(--ink);max-width:62ch;text-wrap:pretty}
+@media (max-width:520px){.mainpt{grid-template-columns:1fr;gap:10px;padding:16px}.mainpt .mp-t{font-size:16.5px}}
 .hero .hsub b{color:var(--yellow)}
 .partcard{padding:0}
 .partcard>summary{list-style:none;display:flex;gap:14px;align-items:flex-start;padding:16px 18px;cursor:pointer;border-radius:var(--r)}
@@ -2202,7 +2225,7 @@ function renderFlow(id){const f=FLOWS[id];return `<div class="flow" role="list" 
   const br=n.t==='q'?`<div class="branch"><span class="br yes">${esc(n.yes)}</span><span class="br no">${esc(n.no)}</span></div>`:'';
   const docs=n.d?`<div class="docs">${n.d.map(docChip).join('')}</div>`:'';
   return `${i?arrow:''}<div class="${cls}" role="listitem" data-step="${i}"><div class="row"><span class="n">${mark}</span><div class="tx">${esc(n.x)}${who}</div></div>${br}${docs}</div>`}).join('')}</div>`}
-const legend=`<div class="legend"><span><i class="sw"></i> Step</span><span><i class="sw q"></i> Question</span><span><i class="sw y"></i> Document to fill</span><span><i class="sw e"></i> End</span><span class="swipe">Read left → right. Scroll sideways for more.</span></div>`;
+const legend=`<div class="legend"><span><i class="sw"></i> Step</span><span><i class="sw q"></i> Question</span><span><i class="sw y"></i> Document to fill</span><span><i class="sw e"></i> End</span><span class="swipe">Read in number order.</span></div>`;
 
 function load(k,d){if(SYNC_KEYS.includes(k)&&STATE[k]!=null){try{return JSON.parse(STATE[k])}catch(e){}}try{return JSON.parse(localStorage.getItem(LSP+k)||d)}catch(e){return JSON.parse(d)}}
 function save(k,v){const j=JSON.stringify(v);try{localStorage.setItem(LSP+k,j)}catch(e){}if(SYNC_KEYS.includes(k)){STATE[k]=j;syncLater(k)}}
@@ -2265,6 +2288,7 @@ function renderCourse(){
   ${tocHTML()}
   ${PARTS.map((p,pi)=>{const ls=partLessons(p);const nd=ls.filter(l=>done.has(l.id)).length;let lastR='';return `<details class="card partcard" id="P-${p.id}" data-part="${p.id}" open hidden><summary><span class="pnum">${pi+1}</span><span class="ptitle"><span class="eyebrow">Step ${pi+1} of ${PARTS.length} · ${ls.length} lessons · <span data-pcount="${p.id}">${nd}</span> done</span><b>${esc(p.q)}</b><span class="pdesc">${esc(p.desc)}</span></span></summary>
    <div class="pbody">
+   ${ls.length>1?`<details class="readfirst"${ls.length<=8?' open':''}><summary><b>Read this first</b><small>the whole step in 1 minute · ${ls.length} lessons</small></summary><ol class="story">${ls.map((l,k)=>`<li class="${done.has(l.id)?'ok':''}"><span class="sn">${done.has(l.id)?'✓':k+1}</span><span><b>${esc(l.title)}</b>${l.main?`<span class="m">${esc(l.main)}</span>`:''}</span></li>`).join('')}</ol></details>`:''}
    ${p.sessions.map(sid=>{const s=SESS[sid];const m=String(s.title).split(' · ');const rh=m.length>1?m[0]:'';const t=m.length>1?m.slice(1).join(' · '):s.title;let head='';if(rh&&rh!==lastR){head=`<div class="rhythmhead"><span>${esc(rh)}</span></div>`;lastR=rh}else if(!rh&&lastR){lastR='';head='<div class="rhythmhead"><span>Processes you run</span></div>'}return `${head}<div class="sesshead">${esc(t)}<small>${esc(s.desc||'')}</small></div>${s.lessons.map(l=>{const [c,t2]=status(l.id);return `<button class="lrow lhead" data-open="${l.id}" id="L-${l.id}"><span class="ico">${l.flow?ICON.flow:lessonSteps(l).length?ICON.audio:ICON.read}</span><span class="lmeta"><b>${esc(l.title)}</b><span>${lessonMeta(l)}</span></span><span class="stpill ${c}" data-status="${l.id}">${t2}</span><span class="openpill">Open</span></button>`}).join('')}`}).join('')}
    ${testRow(p,'post')}</div></details>`}).join('')}</div><div id="lessonView" hidden></div>`;
 }
@@ -2322,7 +2346,7 @@ function openLessonView(id){
   <div class="lv-head"><div class="lv-titles"><div class="eyebrow">${FO_ONLY.has(id)?"Formal Observation · Step 1 of 5":`Step ${l.pi+1} · ${esc(p.q)}`}</div><h2 id="lvTitle">${esc(l.title)}</h2><p class="sub2">${esc(l.session.title)} — ${esc(l.session.desc)}</p></div><span class="stpill ${c}" id="lvStatus" data-id="${id}">${t}</span></div>
   ${p.id==='p1'&&!preDone()?`<div class="pretip"><span><b>Start with the pre-read.</b> ${PREREAD.length} short pages about your role, who you report to and your place in the center.</span><button class="donebtn" data-pre="${PRE}">Open the pre-read</button></div>`:''}
   ${false?`<div class="pretip"><span><b>New to Step ${l.pi+1}?</b> Take the ${QN(p.id)}-question pre-test first. It takes 2 minutes.</span><button class="donebtn" data-test="${p.id}:pre">Start pre-test</button></div>`:''}
-  <section class="hero"><i class="c1"></i><i class="c2"></i><div class="eyebrow y">The main point</div><p class="hl">${esc(l.main)}</p></section>
+  <section class="mainpt"><span class="mp-ic" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg></span><div><div class="eyebrow">The main point</div><p class="mp-t">${esc(l.main)}</p></div></section>
   ${hasPlayer?playerHTML(l):''}
   ${l.flow?`<div class="card legendcard">${legend}</div>`:''}
   ${l.body?`<section class="card lcontent" id="lcontent">${(l.parts||[]).length?`<div class="eyebrow lpart-n">Part 1 of ${l.parts.length+1}</div>`:''}${l.body}</section>`:''}
@@ -2334,6 +2358,7 @@ function openLessonView(id){
     ${EXTRA[pt.id]?`<div class="lpart-extra"><div class="eyebrow">Step by step</div>${EXTRA[pt.id]}</div>`:''}</section>`).join('')}
   ${id==='fo'?foNextHTML():''}${id==='nextsteps'?caseHTML():''}
   ${(l.check||[]).length?`<section class="card answer"><div class="eyebrow">Your answer</div>${l.check.map((ch,ci)=>`<div class="check"><p><b>${esc(ch.q)}</b></p><button data-ans="${id}-${ci}" ${unlocked?'':'disabled'}>${unlocked?'Show answer':'Finish listening to unlock'}</button><p class="ans" id="A-${id}-${ci}" hidden>${esc(ch.a)}</p></div>`).join('')}</section>`:''}
+  ${FO_ONLY.has(id)?'':lastOfPart?`<section class="card lnextcard"><div><div class="eyebrow">Coming next</div><b>Step ${l.pi+1} check</b><p>A few questions on this step. Passing opens the next step.</p></div><button class="donebtn" data-test="${p.id}:post">Start the check</button></section>`:next?`<section class="card lnextcard"><div><div class="eyebrow">Coming next</div><b>${esc(next.title)}</b>${next.main?`<p>${esc(next.main)}</p>`:''}</div><button class="donebtn" data-open="${next.id}">Next lesson →</button></section>`:''}
   <div class="lv-nav">${prev?`<button class="navbtn" data-open="${prev.id}">← ${esc(prev.title)}</button>`:'<span></span>'}<button class="donebtn${done.has(id)?' done':''}" data-done="${id}">${done.has(id)?'✓ Done':'Mark as done'}</button>${lastOfPart?`<button class="navbtn" data-test="${p.id}:post">Step ${l.pi+1} post-test →</button>`:next?`<button class="navbtn" data-open="${next.id}">${esc(next.title)} →</button>`:`<button class="navbtn" data-fo="rubric">FO step 2: The Rubric &amp; High Impact →</button>`}</div>`;
   const qaInBody=lv.querySelector('#lcontent .qa');if(qaInBody&&hasPlayer&&!l.flow)qaInBody.remove();
   kpify(lv.querySelector('#lcontent'));kpify(lv.querySelector('#lmore'));lv.querySelectorAll('.lpart-body,.lpart-more').forEach(kpify);inlinePops(l,lv,hasPlayer);{const si=lv.querySelector('[data-slideimg]');if(si&&SCHED_SLIDES.length)si.src=SCHED_SLIDES[0].src}
@@ -6317,7 +6342,7 @@ document.addEventListener('change', e => {
 /* ===================== TEACHER PERFORMANCE (L&D overview, all centers) ===================== */
 /* For the people in Settings → performance_dashboard_emails (and admins): every teacher in every center —
    latest FO and trend, FO coverage (TL compliance), role-play readiness, PIP and renewal — per center and per teacher. */
-const TL_BUILD = 'v14.50 · 28 Nov 2026';
+const TL_BUILD = 'v14.51 · 28 Nov 2026';
 /* L&D can preview the page exactly as a center team sees it (same filtering the server does for a TL / CM). */
 function perfMode(){ return PERF.preview || PERF.scope === 'center' ? 'center' : 'all'; }
 function perfMine(){ return PERF.preview ? [PERF.preview] : (PERF.myCenters || []); }
