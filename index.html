@@ -6317,7 +6317,7 @@ document.addEventListener('change', e => {
 /* ===================== TEACHER PERFORMANCE (L&D overview, all centers) ===================== */
 /* For the people in Settings → performance_dashboard_emails (and admins): every teacher in every center —
    latest FO and trend, FO coverage (TL compliance), role-play readiness, PIP and renewal — per center and per teacher. */
-const TL_BUILD = 'v14.49 · 28 Nov 2026';
+const TL_BUILD = 'v14.50 · 28 Nov 2026';
 /* L&D can preview the page exactly as a center team sees it (same filtering the server does for a TL / CM). */
 function perfMode(){ return PERF.preview || PERF.scope === 'center' ? 'center' : 'all'; }
 function perfMine(){ return PERF.preview ? [PERF.preview] : (PERF.myCenters || []); }
