@@ -1895,7 +1895,8 @@ textarea.si-in{min-height:84px;resize:vertical}
       <button class="slink sub" role="tab" id="tab-life" aria-selected="false" data-tab="life"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="6" height="5" rx="1"/><rect x="15" y="15" width="6" height="5" rx="1"/><path d="M9 6.5h4a2 2 0 0 1 2 2V15"/></svg>Hiring to sign-off</button>
       <button class="slink sub" role="tab" id="tab-mail" aria-selected="false" data-tab="mail"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>E-mail templates</button>
       <div class="navgrp">L&amp;D support</div>
-      <button class="slink sub" role="tab" id="tab-ldnews" aria-selected="false" data-tab="ldnews"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h13v14H6a2 2 0 0 1-2-2z"/><path d="M17 9h3v8a2 2 0 0 1-2 2"/><path d="M8 9h5M8 13h5"/></svg>News flash</button>
+      <button class="slink sub" role="tab" id="tab-ldlinks" aria-selected="false" data-tab="ldlinks"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2z"/><path d="M8 7h6M8 11h6"/></svg>Learning channels</button>
+      <button class="slink sub" role="tab" id="tab-ldnews" aria-selected="false" data-tab="ldnews"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h13v14H6a2 2 0 0 1-2-2z"/><path d="M17 9h3v8a2 2 0 0 1-2 2"/><path d="M8 9h5M8 13h5"/></svg>News flash<span class="nhcount" id="newsNav" hidden></span></button>
       <button class="slink sub" role="tab" id="tab-ldho" aria-selected="false" data-tab="ldho"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>HO trainings<span class="nhcount" id="hoNav" hidden></span></button>
       <button class="slink sub" role="tab" id="tab-ldreq" aria-selected="false" data-tab="ldreq" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M7 9v5c0 1.7 2.2 3 5 3s5-1.3 5-3V9"/></svg>Request a training</button>
       <button class="slink sub" role="tab" id="tab-ldlist" aria-selected="false" data-tab="ldlist" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg><span id="ldListLabel">My requests</span><span class="nhcount" id="ldNav" hidden></span></button>
@@ -1928,6 +1929,7 @@ textarea.si-in{min-height:84px;resize:vertical}
     <section id="panel-pip" role="tabpanel" aria-labelledby="tab-pip" hidden></section>
     <section id="panel-life" role="tabpanel" aria-labelledby="tab-life" hidden></section>
     <section id="panel-mail" role="tabpanel" aria-labelledby="tab-mail" hidden></section>
+    <section id="panel-ldlinks" role="tabpanel" aria-labelledby="tab-ldlinks" hidden></section>
     <section id="panel-ldnews" role="tabpanel" aria-labelledby="tab-ldnews" hidden></section>
     <section id="panel-ldho" role="tabpanel" aria-labelledby="tab-ldho" hidden></section>
     <section id="panel-ldreq" role="tabpanel" aria-labelledby="tab-ldreq" hidden></section>
@@ -3004,8 +3006,8 @@ function openDrawer(){$('side').classList.add('open');$('scrim').hidden=false;$(
 function closeDrawer(){const s=$('side');if(!s)return;s.classList.remove('open');$('scrim').hidden=true;$('menuBtn').setAttribute('aria-expanded','false')}
 
 /* ---------- TABS & CLICKS ---------- */
-const PANELS=['course','fo','perf','tiers','acting','wk','observe','audit','nh','pip','life','mail','ldnews','ldho','ldreq','ldlist','ldfu','staff','flows','tools','dash','words','team'];
-function showTab(name){toolsReveal(name);if(name==='fo')renderFO();if(['observe','audit','nh','pip','perf','tiers','acting','wk','life','mail','ldnews','ldho','ldreq','ldlist','ldfu','staff'].includes(name)&&window.TL2)TL2.render(name);if(name!=='course')stopPlayer();document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===name)));PANELS.forEach(p=>document.getElementById('panel-'+p).hidden=p!==name);save('tlm-tab',name);closeDrawer();renderMap()}
+const PANELS=['course','fo','perf','tiers','acting','wk','observe','audit','nh','pip','life','mail','ldlinks','ldnews','ldho','ldreq','ldlist','ldfu','staff','flows','tools','dash','words','team'];
+function showTab(name){toolsReveal(name);if(name==='fo')renderFO();if(['observe','audit','nh','pip','perf','tiers','acting','wk','life','mail','ldlinks','ldnews','ldho','ldreq','ldlist','ldfu','staff'].includes(name)&&window.TL2)TL2.render(name);if(name!=='course')stopPlayer();document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===name)));PANELS.forEach(p=>document.getElementById('panel-'+p).hidden=p!==name);save('tlm-tab',name);closeDrawer();renderMap()}
 document.addEventListener('click',e=>{
   const dl=e.target.closest('a[data-dl]');if(dl&&window.claude&&typeof window.claude.use==='function'){e.preventDefault();saveDoc(dl);return}
   if(e.target.closest('#menuBtn')){$('side').classList.contains('open')?closeDrawer():openDrawer();return}
@@ -3153,7 +3155,7 @@ function loadErrHtml(err, act, setupHint){
 function linkUrl(id){ const d = DASH.find(x => x.id === id) || (id === 'tracker' ? DASH.find(x => /activity tracker/i.test(x.name)) : null); return d ? d.u : ''; }
 
 let CUR = 'observe';
-const VIEW = { observe:()=>vObserve(), audit:()=>vAudit(), nh:()=>vNH(), life:()=>vLifecycle(), mail:()=>vEmails(), pip:()=>vPip(), perf:()=>vPerf(), tiers:()=>vTiers(), acting:()=>vActing(), ldnews:()=>vLd('news'), ldho:()=>vLd('ho'), ldreq:()=>vLd('req'), ldlist:()=>vLd('list'), ldfu:()=>vFollowups(), staff:()=>vStaff(), wk:()=>vWeekly() };
+const VIEW = { observe:()=>vObserve(), audit:()=>vAudit(), nh:()=>vNH(), life:()=>vLifecycle(), mail:()=>vEmails(), pip:()=>vPip(), perf:()=>vPerf(), tiers:()=>vTiers(), acting:()=>vActing(), ldlinks:()=>ldLinksHtml(), ldnews:()=>vLd('news'), ldho:()=>vLd('ho'), ldreq:()=>vLd('req'), ldlist:()=>vLd('list'), ldfu:()=>vFollowups(), staff:()=>vStaff(), wk:()=>vWeekly() };
 const HEAD = {
   observe:['Formal Observation','Observe, score, give feedback','Take notes in class. Each note is linked to a rubric item and suggests a score. You check every score, add feedback, then generate the filled master rubric sheet and send it to the teacher.'],
   audit:['Formal Observation','FO audit','Who is due, who is overdue, and whether every FO has notes, a rubric sheet sent to the teacher and a Teacher Activity Tracker entry.'],
@@ -3163,6 +3165,7 @@ const HEAD = {
   acting:['16 Nov – 31 Dec 2026','Acting period','At least 2 deliverables a week, L&D quality check, the three checkpoints and the final result.'],
   tiers:['L&D only','Teacher tiers — P1, P2, P3','From the Talent Density tab, copied every day. P1 High Impact 3.40–4.00 · P2 Proficient 3.01–3.39 · P3 Developing & Critical 3.00 and below — each split into an upper and a lower band with its own intervention.'],
   pip:['Performance management','Performance Improvement Plan (PIP)','Check that a PIP is justified, write the plan with the teacher, send it, cover the classes, and follow it to the end. L&D sees every PIP here.'],
+  ldlinks:['L&D support','Learning channels','Where to go for training, mentoring and the latest materials — one place for every L&D platform.'],
   ldnews:['L&D support','News flash','What is new from the L&D team — what just launched and how to try it.'],
   ldho:['L&D support','HO trainings','Trainings L&D runs after assessing the needs across centers.'],
   ldreq:['L&D support','Training request by center','Start with the problem, say what you tried, then think first: is an offline training really the fix? Takes about 3 minutes.'],
@@ -3184,7 +3187,7 @@ function render(name){
   if (S.loaded){ if (CUR === 'observe') afterObserve(); if (CUR === 'life') drawLanes(); }
 }
 function route(){ return CUR === 'audit' ? 'audit' : CUR === 'observe' ? 'observe' : CUR; }
-function go(r){ const map = { acting:'acting', tiers:'tiers', observe:'observe', audit:'audit', nh:'nh', newhire:'nh', emails:'mail', lifecycle:'life', mail:'mail', life:'life', pip:'pip', perf:'perf', ld:'ldnews', ldnews:'ldnews', ldho:'ldho', ldreq:'ldreq', ldlist:'ldlist', ldfu:'ldfu', staff:'staff' }; showTab(map[r] || r); window.scrollTo(0,0); }
+function go(r){ const map = { acting:'acting', tiers:'tiers', observe:'observe', audit:'audit', nh:'nh', newhire:'nh', emails:'mail', lifecycle:'life', mail:'mail', life:'life', pip:'pip', perf:'perf', ld:'ldnews', ldnews:'ldnews', ldlinks:'ldlinks', channels:'ldlinks', ldho:'ldho', ldreq:'ldreq', ldlist:'ldlist', ldfu:'ldfu', staff:'staff' }; showTab(map[r] || r); window.scrollTo(0,0); }
 function load(){
   return api('getToolsData').then(txt => {
     const b = typeof txt === 'string' ? JSON.parse(txt) : txt;
@@ -4733,7 +4736,7 @@ function ldBadge(){
   const st = d.me.ld ? d.staff.filter(s => s.status === 'Pending').length : 0;
   const set = (id, n) => { const b = document.getElementById(id); if (b){ b.textContent = n || ''; b.hidden = !n; } };
   const fu = (d.followups || []).filter(x => x.due && x.due <= d.today).length;
-  set('ldNav', reqs); set('hoNav', ho); set('staffNav', st); set('fuNav', fu);
+  set('ldNav', reqs); set('hoNav', ho); set('staffNav', st); set('fuNav', fu); set('newsNav', CUR === 'ldnews' ? 0 : newsUnseen(d));
   if (WK.d && WK.d.rows){ const n = d.me.ld ? WK.d.rows.filter(r => r.status !== 'Submitted').length : (WK.d.my && WK.d.my.status === 'Submitted' ? 0 : 1); set('wkNav', n); }
   const show = (id, on) => { const t = document.getElementById(id); if (t) t.hidden = !on; };
   show('tab-wk', d.me.canRequest || d.me.ld);
@@ -4758,6 +4761,26 @@ function vLd(sec){
   LD.sec = sec || 'news';
   if (LD.sec === 'req' && !LD.d.me.canRequest) return '<div class="callout">Training requests are for the Teacher Leader and Center Manager.</div>';
   return LD.sec === 'news' ? ldNewsHtml() : LD.sec === 'ho' ? ldHoHtml() : LD.sec === 'req' ? ldReqHtml() : ldListHtml();
+}
+/* ---------- learning channels (fixed list; edit here) ---------- */
+const LD_CHANNELS = [
+  { name: 'STAR Library', who: 'Teacher Leaders · Senior Teachers', tag: 'Mentoring & in-center training', url: 'https://sparksenglish.github.io/star-library/#/', btn: 'Open STAR Library',
+    lead: 'Your go-to place for mentoring and for the latest L&D materials. It replaces Google Classroom.',
+    points: ['Find the newest training decks and teacher guides in one place, always up to date.', 'Run your mentoring or training session in the center straight from the deck.', 'Go live: the pre-test, the session and the post-test all run live in the room, so you see the results on the spot.'] },
+  { name: 'Onboarding LMS', who: 'New hires · their Teacher Leader', tag: 'Day one for every new hire', url: 'https://s.id/OnboardingLMS', btn: 'Open the Onboarding LMS',
+    lead: 'The starting point for every new hire: the hygiene modules on getting to know Sparks English.',
+    points: ['Send every new teacher here on their first day.', 'Check they finish the hygiene modules before they start teaching on their own.'] },
+  { name: 'Curriculum Playbook', who: 'Everyone who teaches', tag: 'Curriculum reference', url: 'https://s.id/CurriculumPlaybook', btn: 'Open the Curriculum Playbook', note: 'Available now · under maintenance soon',
+    lead: 'The reference for how our programs and levels are taught.',
+    points: ['Use it to plan lessons and to check the curriculum standards.', 'It will be under maintenance soon while we make some changes. We will tell you in News flash when it is back.'] },
+  { name: 'Sparks Leadership & Speech Academy (SLSA)', who: 'Teacher Leaders · SLSA teachers', tag: 'SLSA program & demo teaching', url: 'https://s.id/SLSALMS', btn: 'Open the SLSA LMS', url2: 'https://s.id/DemoTeachingSLSA', btn2: 'Book a demo teaching session',
+    lead: 'Everything about SLSA: the program, the readiness track and what each teacher needs to get certified.',
+    points: ['Read the details of SLSA before you assign a teacher to it.', 'Book a demo teaching session for your teacher with the booking link.'] }];
+function ldLinksHtml(){
+  return `<div class="xstack ldch"><p class="muted small" style="margin:0">We no longer use Google Classroom. These are the L&amp;D platforms your center uses, and what each one is for.</p>
+    ${LD_CHANNELS.map((c, i) => `<article class="xcard ldchc"><div class="ldch-h"><span class="ldch-n">${i + 1}</span><div><h3>${esc(c.name)}</h3><div class="mut small">${esc(c.tag)} · for ${esc(c.who)}</div></div>${c.note ? `<span class="xpill warn">${esc(c.note)}</span>` : ''}</div>
+      <p class="ldch-lead">${esc(c.lead)}</p><ul class="ldch-ul">${c.points.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+      <div class="xrow" style="gap:8px;flex-wrap:wrap"><a class="xbtn sm primary" href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.btn)} ↗</a>${c.url2 ? `<a class="xbtn sm" href="${esc(c.url2)}" target="_blank" rel="noopener">${esc(c.btn2)} ↗</a>` : ''}</div></article>`).join('')}</div>`;
 }
 /* ---------- news flash ---------- */
 /* News flash body: plain text in the sheet → readable layout. "1 · Title" paragraphs become numbered steps, "•" lines become bullets,
@@ -4797,9 +4820,19 @@ function newsCardHtml(n){
     ${isOpen ? `<div class="nbodywrap">${n.body ? newsBodyHtml(n) : ''}${n.tryIt ? `<p class="tryit small"><span class="l">Try it</span>${esc(n.tryIt)}</p>` : ''}${n.link ? `<a class="xbtn sm" href="${esc(n.link)}" target="_blank" rel="noopener">Open link</a>` : ''}</div>` : `<p class="nlead-c small">${esc(lead.length > 190 ? lead.slice(0, 187) + '…' : lead)}</p>`}
     <button class="ntoggle" data-act="ld_ntoggle" data-id="${esc(n.id)}" aria-expanded="${isOpen}">${isOpen ? 'Collapse' : (guide ? 'Open guide' : 'Read more')} ${chev}</button></article>`;
 }
+function newsSeenAt(){ try { return +localStorage.getItem(LSP + 'tlm-newsseen') || 0; } catch (e) { return 0; } }
+function newsUnseen(d){ const seen = newsSeenAt(), t = x => { const v = parseD(x); return v ? v.getTime() : 0; };
+  if (!seen) return d.news.filter(newsIsNew).length + d.trainings.filter(x => x.status === 'Open' && x.date >= d.today && x.postedAt && Date.now() - t(x.postedAt) < 7 * 864e5).length;
+  return d.news.filter(n => t(n.at) > seen).length + d.trainings.filter(x => x.status === 'Open' && x.date >= d.today && t(x.postedAt) > seen).length; }
+function newsComingUp(d){ return d.trainings.filter(t => t.status === 'Open' && t.date >= d.today).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).slice(0, 6); }
 function ldNewsHtml(){
-  const d = LD.d, f = LD.nform;
-  return `<div class="xstack">${d.me.ld ? (f ? `<div class="xcard xstack" id="newsform"><h3>${f.id ? 'Edit this post' : 'Post a news flash'}</h3>
+  const d = LD.d, f = LD.nform, up = newsComingUp(d);
+  try { localStorage.setItem(LSP + 'tlm-newsseen', String(Date.now())); } catch (e) {} setTimeout(ldBadge, 0);
+  return `<div class="xstack">${up.length ? `<section class="xcard ncoming"><div class="thd"><h3 style="margin:0">Coming up from L&amp;D</h3><button class="xbtn sm ghost" onclick="showTab('ldho')">All HO trainings →</button></div>
+      ${up.map(t => { const dt = parseD(t.date); return `<div class="ncup"><div class="hodate sm"><b>${dt ? dt.getDate() : ''}</b><span>${dt ? dt.toLocaleDateString('en-GB', { month:'short' }) : ''}</span></div>
+        <div><b>${esc(t.title)}</b><div class="mut small">${dt ? esc(dt.toLocaleDateString('en-GB', { weekday:'long' })) + ' · ' : ''}${esc(t.start)}–${esc(t.end)}${t.where ? ' · ' + esc(t.where) : ''} · for ${esc(t.audience)}</div></div>
+        <div>${t.my === 'Yes' ? '<span class="xpill good">You’re going</span>' : `<button class="xbtn sm" onclick="showTab('ldho')">See and join</button>`}</div></div>`; }).join('')}
+      <p class="mut small" style="margin:6px 0 0">Press <b>I’ll join</b> on HO trainings and it goes into your Google Calendar.</p></section>` : ''}${d.me.ld ? (f ? `<div class="xcard xstack" id="newsform"><h3>${f.id ? 'Edit this post' : 'Post a news flash'}</h3>
       <div class="pipopts">${NEWS_TAGS.map(t => `<button data-act="ld_nf" data-k="tag" data-v="${t}" aria-pressed="${f.tag === t}">${t}</button>`).join('')}</div>
       <div class="xfield"><label for="nf-t">Title</label><input class="xinput" id="nf-t" data-ldn="title" value="${esc(f.title)}" placeholder="e.g. Role-play check is live in the LMS"></div>
       <div class="xfield"><label for="nf-b">What is it?</label><textarea class="xinput" id="nf-b" data-ldn="body" rows="${f.id ? Math.min(18, Math.max(5, String(f.body).split('\n').length + 2)) : 4}" placeholder="What changed, who it is for, where to find it">${esc(f.body)}</textarea></div>
@@ -4837,6 +4870,7 @@ function hoCentersHtml(f){
     <div class="xrow xbetween"><input class="xinput sm" data-hocq placeholder="Find a center" value="${esc(f.cq || '')}" style="max-width:220px">
       <span class="small"><button class="linkbtn" data-act="ld_cset" data-v="all">Select all</button> · <button class="linkbtn" data-act="ld_cset" data-v="none">Clear</button>${fromInv.length ? ` · <button class="linkbtn" data-act="ld_cset" data-v="inv">Centers of the invited teachers (${fromInv.length})</button>` : ''}</span></div>
     <div class="hocgrid">${shown.map(c => `<label class="hoc"><input type="checkbox" data-hoc="${esc(c)}" ${sel.includes(c) ? 'checked' : ''}><span>${esc(c.replace(/^SE-/, ''))}</span></label>`).join('') || '<span class="muted small">No center matches.</span>'}</div>
+    ${!sel.length && !f.id && f.type !== 'Tier intervention' ? `<label class="small" style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" data-ldnotify ${f.notify !== false ? 'checked' : ''}> E-mail every center that this training is open (it also shows in News flash)</label>` : ''}
     <p class="muted small" style="margin:6px 0 0">${sel.length ? `${sel.length} center${sel.length > 1 ? 's' : ''} · ${n} account${n === 1 ? '' : 's'} will be invited. Only these centers see the training in the LMS.` : 'No center picked — every center can see it and press “I’ll join”.'}${all.length ? '' : ' (No center accounts in the Access tab.)'}</p>
     <div class="xfield" style="margin-top:8px"><label for="tf-x">Other people to invite <span class="muted">(optional e-mails, separated by commas)</span></label><input class="xinput" id="tf-x" data-ldt="extra" value="${esc(f.extra || '')}" placeholder="e.g. area.manager@seven-retail.com"></div></fieldset>`;
 }
@@ -4932,10 +4966,20 @@ function ldHoHtml(){
       <div class="xrow"><div class="xfield" style="flex:1"><label for="tf-w">Where</label><input class="xinput" id="tf-w" data-ldt="where" value="${esc(f.where)}" placeholder="e.g. HO room 3 / Zoom"></div><div class="xfield" style="flex:1"><label for="tf-l">Link (optional)</label><input class="xinput" id="tf-l" data-ldt="link" value="${esc(f.link)}"></div></div>
       <div class="xrow"><button class="xbtn primary" data-act="ld_tpost" ${LD.busy ? 'disabled' : ''}>${f.id ? 'Save' : f.type === 'Tier intervention' ? 'Post & send invitations' : 'Post it'}</button><button class="xbtn ghost" data-act="ld_tclose">Cancel</button><span class="muted small">It is added to your Google Calendar; everyone who joins is added as a guest.</span></div></div>`
       : `<div class="xrow"><button class="xbtn" data-act="ld_topen">+ Post an HO training</button></div>`) : ''}
-    ${up.length || ctS.length ? [...up.map(t => ({ k: t.date + (t.start || ''), h: card(t) })), ...ctS.map(t => ({ k: t.date + (t.start || ''), h: ctCard(t) }))].sort((a, b) => a.k.localeCompare(b.k)).map(x => x.h).join('') : '<p class="muted">No upcoming HO trainings right now.</p>'}
+    ${up.length || ctS.length ? hoMonths([...up.map(t => ({ k: t.date + (t.start || ''), d: t.date, h: card(t), my: t.my === 'Yes' })), ...ctS.map(t => ({ k: t.date + (t.start || ''), d: t.date, h: ctCard(t), my: !!t.mine }))], false) : '<p class="muted">No upcoming HO trainings right now.</p>'}
     ${ctA.length ? `<section class="xcard"><div class="thd"><h3 style="margin:0">Accepted center trainings — date to be confirmed</h3><span class="mut small">${ctA.length} waiting for a date</span></div>
       <div class="tscroll"><table class="tt"><thead><tr><th>Center</th><th>Topic</th><th>Status</th></tr></thead><tbody>${ctA.map(t => `<tr><td>${esc(shortC(t.center))}${t.mine ? ' <span class="xpill good">Your center</span>' : ''}</td><td>${esc(t.topic)}</td><td class="mut">Accepted by L&amp;D · date not set yet</td></tr>`).join('')}</tbody></table></div></section>` : ''}
-    ${past.length ? `<details class="xcard pfsec"><summary><h3 style="margin:0">Past &amp; cancelled</h3></summary><div class="xstack" style="margin-top:8px">${past.map(card).join('')}</div></details>` : ''}</div>`;
+    ${past.length ? `<section class="xstack"><h3 style="margin:8px 0 0">Past &amp; cancelled</h3>${hoMonths(past.map(t => ({ k: t.date + (t.start || ''), d: t.date, h: card(t), my: t.my === 'Yes' })), true)}</section>` : ''}</div>`;
+}
+/** Trainings grouped by month, each month opens and closes. Upcoming: the first month is open. Past: newest month first, all closed. */
+function hoMonths(items, past){
+  const by = {}; items.forEach(x => { const m = String(x.d || '').slice(0, 7); (by[m] = by[m] || []).push(x); });
+  const months = Object.keys(by).sort(); if (past) months.reverse();
+  LD.mopen = LD.mopen || {};
+  return months.map((m, i) => { const list = by[m].sort((a, b) => past ? b.k.localeCompare(a.k) : a.k.localeCompare(b.k)), dt = parseD(m + '-01'), key = (past ? 'p' : 'u') + m;
+    const open = LD.mopen[key] != null ? LD.mopen[key] : (!past && i === 0), mine = list.filter(x => x.my).length;
+    return `<details class="xcard homonth" data-mkey="${key}" ${open ? 'open' : ''}><summary><span class="homonth-t">${dt ? esc(dt.toLocaleDateString('en-GB', { month:'long', year:'numeric' })) : esc(m)}</span>
+      <span class="mut small">${list.length} training${list.length === 1 ? '' : 's'}${mine ? ` · <span class="actok">you’re in ${mine}</span>` : ''}</span><span class="tsec-c" aria-hidden="true"></span></summary><div class="xstack homonth-b">${list.map(x => x.h).join('')}</div></details>`; }).join('');
 }
 const CYCLE = ['Center request', 'L&D decision', 'Training', 'Follow-up & impact'];
 function ldCycleHtml(at){ return `<ol class="cycle">${CYCLE.map((c, i) => `<li class="${i + 1 === at ? 'on' : i + 1 < at ? 'past' : ''}"><span>${i + 1}</span>${esc(c)}</li>`).join('')}</ol>`; }
@@ -6188,7 +6232,7 @@ document.addEventListener('change', e => {
 /* ===================== TEACHER PERFORMANCE (L&D overview, all centers) ===================== */
 /* For the people in Settings → performance_dashboard_emails (and admins): every teacher in every center —
    latest FO and trend, FO coverage (TL compliance), role-play readiness, PIP and renewal — per center and per teacher. */
-const TL_BUILD = 'v14.45 · 28 Nov 2026';
+const TL_BUILD = 'v14.46 · 28 Nov 2026';
 /* L&D can preview the page exactly as a center team sees it (same filtering the server does for a TL / CM). */
 function perfMode(){ return PERF.preview || PERF.scope === 'center' ? 'center' : 'all'; }
 function perfMine(){ return PERF.preview ? [PERF.preview] : (PERF.myCenters || []); }
@@ -7055,6 +7099,8 @@ document.addEventListener('input', e => { const t = e.target, ds = t.dataset || 
   if (ds.actm && ACT.meet){ ACT.meet[ds.actm] = t.value; const b = document.querySelector('[data-act="act_meetsave"]'); if (b && !ACT.busy) b.disabled = !ACT.meet.date || !ACT.meet.start; return; }
   if (ds.actc && ACT.chk && t.tagName !== 'SELECT'){ ACT.chk[ds.actc] = t.value; return; }
   if (ds.actd && ACT.dec){ ACT.dec[ds.actd] = t.value; if (ds.actd === 'adj') rerender(); } });
+document.addEventListener('toggle', e => { const t = e.target; if (t && t.dataset && t.dataset.mkey){ LD.mopen = LD.mopen || {}; LD.mopen[t.dataset.mkey] = t.open; } }, true);
+document.addEventListener('change', e => { const t = e.target; if (t && t.dataset && t.dataset.ldnotify != null && LD.tform) LD.tform.notify = t.checked; });
 document.addEventListener('change', e => { const t = e.target, ds = t.dataset || {}; if (ds.actm && ACT.meet){ ACT.meet[ds.actm] = t.value; return; }
   if (ds.actsel){ ACT.sel[ds.actsel] = t.checked; rerender(false); return; }
   if (ds.actselall){ document.querySelectorAll('[data-actsel]').forEach(x => { ACT.sel[x.dataset.actsel] = t.checked; }); rerender(false); return; }
@@ -7065,7 +7111,7 @@ document.addEventListener('change', e => { const t = e.target, ds = t.dataset ||
 function CUR_TAB(){ const b = document.querySelector('[data-tab][aria-selected="true"]'); return b ? b.dataset.tab : ''; }
 window.TL2 = { render, load, startWith, loaded: () => S.loaded, nhCard, loadNH, loadPip };
 // the app may have reopened on a tools page before this module existed (last tab remembered): draw that page now
-{ const open = ['observe','audit','nh','pip','perf','tiers','acting','wk','life','mail','ldnews','ldho','ldreq','ldlist','ldfu','staff'].find(n => { const p = document.getElementById('panel-' + n); return p && !p.hidden; }); if (open) { try { render(open); } catch (e) {} } }
+{ const open = ['observe','audit','nh','pip','perf','tiers','acting','wk','life','mail','ldlinks','ldnews','ldho','ldreq','ldlist','ldfu','staff'].find(n => { const p = document.getElementById('panel-' + n); return p && !p.hidden; }); if (open) { try { render(open); } catch (e) {} } }
 load();
 })();
 
@@ -7286,6 +7332,13 @@ load();
 .t2 .actq.sel{grid-template-columns:28px minmax(0,1fr) minmax(260px,320px)}.t2 .actsel{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}.t2 .actsel input{width:18px;height:18px;accent-color:var(--green)}
 .t2 .actbulk{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;margin-top:8px;border-radius:12px;background:var(--bg);position:sticky;top:0;z-index:2}
 @media(max-width:700px){.t2 .actq.sel{grid-template-columns:28px minmax(0,1fr)}.t2 .actq.sel .actq-r{grid-column:2}}
+.homonth>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px}.homonth>summary::-webkit-details-marker{display:none}.homonth-t{font-weight:600;font-size:16px}
+.homonth>summary .tsec-c{margin-left:auto}.homonth[open]>summary{margin-bottom:10px}.homonth-b>.hocard{box-shadow:none;border:1px solid var(--line)}
+.ncoming .ncup{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}.ncoming .ncup:first-of-type{border-top:0}
+.hodate.sm{min-width:0;padding:6px 4px}.hodate.sm b{font-size:18px}
+.ldchc .ldch-h{display:flex;align-items:flex-start;gap:12px}.ldchc .ldch-h h3{margin:0}.ldchc .ldch-h .xpill{margin-left:auto}
+.ldch-n{width:28px;height:28px;border-radius:999px;background:var(--green-soft);color:var(--green-ink);display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex:0 0 auto}
+.ldch-lead{margin:10px 0 4px}.ldch-ul{margin:0 0 12px;padding-left:20px;line-height:1.6;font-size:14px}
 .t2 .actfb{display:flex;flex-direction:column;gap:2px;padding:10px 0;border-top:1px solid var(--line);font-size:14px}.t2 .actfb:first-of-type{border-top:0}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .t2 .actmeet{background:#1a2638}:root:not([data-theme="light"]) .t2 .actmeet>b,:root:not([data-theme="light"]) .t2 .actblue{color:#a9c4f0}:root:not([data-theme="light"]) .t2 .actck-c.set,:root:not([data-theme="light"]) .t2 .actsteps li.set .actsteps-n{background:#1a2638;color:#a9c4f0}:root:not([data-theme="light"]) .t2 .actmeet.none,:root:not([data-theme="light"]) .t2 .actmeet.edit{background:var(--bg)}}
 
