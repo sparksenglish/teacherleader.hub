@@ -660,6 +660,9 @@ details.fkp[open]>summary::before{content:"–"}
 .tbar{height:8px;border-radius:999px;background:var(--line);overflow:hidden}
 .tbar i{display:block;height:100%;background:var(--green-ink);border-radius:999px}
 .tnums{font-size:14px;color:var(--muted)}
+.lpart{display:flex;flex-direction:column;gap:10px}.lpart-n{color:var(--muted)}.lpart-t{margin:0;font-size:19px}
+.lpart-main{margin:0;border-left:4px solid var(--green);background:var(--green-soft);border-radius:0 10px 10px 0;padding:10px 14px;font-size:15px;line-height:1.6}
+.lpart-flow{border:1px solid var(--line);border-radius:12px;padding:12px 14px;overflow-x:auto}.lpart-more,.lpart-extra{border-top:1px solid var(--line);padding-top:10px}
 .partcard[hidden],.partback[hidden],.homeonly[hidden]{display:none!important}
 @media (max-width:760px){.tocrow{grid-template-columns:auto minmax(0,1fr)}.tprog{grid-column:1/-1}.tocrow .openpill{display:none}}
 
@@ -1520,6 +1523,7 @@ textarea.si-in{min-height:84px;resize:vertical}
 
 .t2 .tsel{display:flex;justify-content:space-between;align-items:center;gap:12px;border:2px solid var(--green-2);background:var(--green-soft);border-radius:12px;padding:12px 14px}
 .t2 .tsel>div{display:grid;gap:1px}.t2 .tsel b{font-size:16px}
+
 </style>
 </head>
 <body>
@@ -1911,7 +1915,6 @@ textarea.si-in{min-height:84px;resize:vertical}
       <button class="slink" role="tab" id="tab-words" aria-selected="false" data-tab="words"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/></svg>Word list</button>
       </div>
     </nav>
-    <a class="refcard" id="refcard" target="_blank" rel="noopener"><span class="eyebrow">Main reference</span><b>Teacher Leader Onboarding deck ↗</b></a>
     <label class="toggle sidetoggle" hidden><input type="checkbox" id="deepAll" checked> Open all + sections</label>
   </aside>
   <div class="scrim" id="scrim" hidden></div>
@@ -2109,7 +2112,7 @@ function fill(s) {
 
 const QA_STORE = DATA.QA_STORE || [];
 const PARTS = DATA.PARTS;
-const SESSIONS = DATA.SESSIONS.map(s => ({ ...s, lessons: s.lessons.map(l => ({ ...l, body: fill(l.body), deeper: fill(l.deeper), main: String(l.main || '') })) }));
+const SESSIONS = DATA.SESSIONS.map(s => ({ ...s, lessons: s.lessons.map(l => ({ ...l, body: fill(l.body), deeper: fill(l.deeper), main: String(l.main || ''), parts: l.parts ? l.parts.map(pt => ({ ...pt, body: fill(pt.body), deeper: fill(pt.deeper), main: String(pt.main || '') })) : undefined })) }));
 const FLOWS = DATA.FLOWS;
 const PREREAD = DATA.PREREAD.map(p => ({ ...p, html: fill(p.html) }));
 const EXTRA = Object.fromEntries(Object.entries(DATA.EXTRA || {}).map(([k, v]) => [k, fill(v)]));
@@ -2209,6 +2212,8 @@ const preDone=()=>ADM||PRE>=PREREAD.length;
 const SESS=Object.fromEntries(SESSIONS.map(s=>[s.id,s]));
 const FO_ONLY=new Set(['fo']);const ALL_RAW=PARTS.flatMap((p,pi)=>p.sessions.flatMap(sid=>SESS[sid].lessons.map(l=>({...l,session:SESS[sid],part:p,pi}))));
 const ALL=ALL_RAW.filter(l=>!FO_ONLY.has(l.id));
+/* merged lessons: progress on an old lesson counts for the lesson it joined */
+const MERGED=DATA.MERGED||{};Object.keys(MERGED).forEach(c=>{const h=MERGED[c];if(done.has(c))done.add(h);if(started.has(c))started.add(h);if(heard.has(c))heard.add(h)});
 const byId=id=>ALL.find(l=>l.id===id)||ALL_RAW.find(l=>l.id===id);
 const partLessons=p=>ALL.filter(l=>l.part===p);
 const partById=id=>PARTS.find(p=>p.id===id);
@@ -2320,32 +2325,39 @@ function openLessonView(id){
   <section class="hero"><i class="c1"></i><i class="c2"></i><div class="eyebrow y">The main point</div><p class="hl">${esc(l.main)}</p></section>
   ${hasPlayer?playerHTML(l):''}
   ${l.flow?`<div class="card legendcard">${legend}</div>`:''}
-  ${l.body?`<section class="card lcontent" id="lcontent">${l.body}</section>`:''}
+  ${l.body?`<section class="card lcontent" id="lcontent">${(l.parts||[]).length?`<div class="eyebrow lpart-n">Part 1 of ${l.parts.length+1}</div>`:''}${l.body}</section>`:''}
   ${l.deeper?`<section class="card lcontent lmore" id="lmore"><div class="eyebrow">More detail</div>${l.deeper}</section>`:''}
-  ${EXTRA[id]?`<section class="card extracard"><div class="eyebrow">More detail · from the TL Onboarding deck</div><h3>Step by step</h3>${EXTRA[id]}</section>`:''}
+  ${EXTRA[id]?`<section class="card extracard"><div class="eyebrow">More detail</div><h3>Step by step</h3>${EXTRA[id]}</section>`:''}
+  ${(l.parts||[]).map((pt,pi)=>`<section class="card lpart" id="lpart-${esc(pt.id)}"><div class="eyebrow lpart-n">Part ${pi+2} of ${l.parts.length+1}</div><h3 class="lpart-t">${esc(pt.title)}</h3>${pt.main?`<p class="lpart-main">${esc(pt.main)}</p>`:''}
+    ${pt.flow&&FLOWS[pt.flow]?`<div class="lpart-flow"><div class="eyebrow">${esc(FLOWS[pt.flow].title)}</div>${renderFlow(pt.flow)}</div>`:''}
+    ${pt.body?`<div class="lpart-body" data-plid="${esc(pt.id)}">${pt.body}</div>`:''}${pt.deeper?`<div class="lpart-more"><div class="eyebrow">More detail</div>${pt.deeper}</div>`:''}
+    ${EXTRA[pt.id]?`<div class="lpart-extra"><div class="eyebrow">Step by step</div>${EXTRA[pt.id]}</div>`:''}</section>`).join('')}
   ${id==='fo'?foNextHTML():''}${id==='nextsteps'?caseHTML():''}
   ${(l.check||[]).length?`<section class="card answer"><div class="eyebrow">Your answer</div>${l.check.map((ch,ci)=>`<div class="check"><p><b>${esc(ch.q)}</b></p><button data-ans="${id}-${ci}" ${unlocked?'':'disabled'}>${unlocked?'Show answer':'Finish listening to unlock'}</button><p class="ans" id="A-${id}-${ci}" hidden>${esc(ch.a)}</p></div>`).join('')}</section>`:''}
   <div class="lv-nav">${prev?`<button class="navbtn" data-open="${prev.id}">← ${esc(prev.title)}</button>`:'<span></span>'}<button class="donebtn${done.has(id)?' done':''}" data-done="${id}">${done.has(id)?'✓ Done':'Mark as done'}</button>${lastOfPart?`<button class="navbtn" data-test="${p.id}:post">Step ${l.pi+1} post-test →</button>`:next?`<button class="navbtn" data-open="${next.id}">${esc(next.title)} →</button>`:`<button class="navbtn" data-fo="rubric">FO step 2: The Rubric &amp; High Impact →</button>`}</div>`;
   const qaInBody=lv.querySelector('#lcontent .qa');if(qaInBody&&hasPlayer&&!l.flow)qaInBody.remove();
-  kpify(lv.querySelector('#lcontent'));kpify(lv.querySelector('#lmore'));inlinePops(l,lv,hasPlayer);{const si=lv.querySelector('[data-slideimg]');if(si&&SCHED_SLIDES.length)si.src=SCHED_SLIDES[0].src}
+  kpify(lv.querySelector('#lcontent'));kpify(lv.querySelector('#lmore'));lv.querySelectorAll('.lpart-body,.lpart-more').forEach(kpify);inlinePops(l,lv,hasPlayer);{const si=lv.querySelector('[data-slideimg]');if(si&&SCHED_SLIDES.length)si.src=SCHED_SLIDES[0].src}
   showView();renderMap();
   if(hasPlayer)setupPlayer(l);
 }
 /* pop-up questions inside reading lessons: a question pops up when you reach that part */
 let _popObs=null;
 function inlinePops(l,lv,hasPlayer){if(_popObs){_popObs.disconnect();_popObs=null}
-  const list=(POPS[l.id]||[]).slice().sort((a,b)=>a.after-b.after);if(!list.length)return;
-  let host=lv.querySelector('#lcontent')||lv.querySelector('#lmore');
-  if(!host){const pl=lv.querySelector('.player');if(!pl)return;host=document.createElement('section');host.className='card lcontent ipops';host.innerHTML='<div class="eyebrow">Quick questions from this lesson</div>';pl.after(host)}
-  const parts=[...host.querySelectorAll(':scope > details.kp, :scope > .tbl, :scope > p, :scope > div')];
-  list.forEach(pp=>{const key=l.id+':'+pp.after;const m=document.createElement('div');m.className='ipop'+(popDone.has(key)?' done':'');m.dataset.ipop=String(pp.after);
-    m.innerHTML=`<span class="ipop-ic">?</span><span><b>${popDone.has(key)?'Quick question — answered':'Quick question'}</b><small>${esc(pp.q)}</small></span><button class="donebtn" data-ipop="${pp.after}">${popDone.has(key)?'Answer again':'Answer'}</button>`;
-    const at=parts[Math.min(parts.length-1,Math.max(0,pp.after))];if(at&&at.parentNode===host)at.after(m);else host.append(m)});
-  if('IntersectionObserver' in window){_popObs=new IntersectionObserver(ents=>{ents.forEach(en=>{if(!en.isIntersecting)return;const a=+en.target.dataset.ipop,key=l.id+':'+a;_popObs.unobserve(en.target);
-    if(popDone.has(key)||!document.getElementById('popModal').hidden)return;const pp=list.find(x=>x.after===a);showPop(pp,()=>{markIpop(l.id,a)},l.id)})},{threshold:.9});
-    host.querySelectorAll('.ipop:not(.done)').forEach(el=>_popObs.observe(el))}}
-function markIpop(lid,a){const el=document.querySelector(`.ipop[data-ipop="${a}"]`);if(el&&popDone.has(lid+':'+a)){el.classList.add('done');el.querySelector('b').textContent='Quick question — answered';el.querySelector('button').textContent='Answer again'}}
-document.addEventListener('click',e=>{const b=e.target.closest('button[data-ipop]');if(!b)return;const lv=document.getElementById('lessonView');const lid=lv&&lv.dataset.cur;const a=+b.dataset.ipop;const pp=(POPS[lid]||[]).find(x=>x.after===a);if(pp)showPop(pp,()=>markIpop(lid,a),lid)});
+  const targets=[{lid:l.id,host:null}].concat((l.parts||[]).map(pt=>({lid:pt.id,host:lv.querySelector(`.lpart-body[data-plid="${pt.id}"]`)||lv.querySelector(`#lpart-${pt.id}`)})));
+  const watch=[];
+  targets.forEach(tg=>{const list=(POPS[tg.lid]||[]).slice().sort((a,b)=>a.after-b.after);if(!list.length)return;
+    let host=tg.host;if(!host&&tg.lid===l.id){host=lv.querySelector('#lcontent')||lv.querySelector('#lmore');
+      if(!host){const pl=lv.querySelector('.player');if(!pl)return;host=document.createElement('section');host.className='card lcontent ipops';host.innerHTML='<div class="eyebrow">Quick questions from this lesson</div>';pl.after(host)}}
+    if(!host)return;
+    const parts=[...host.querySelectorAll(':scope > details.kp, :scope > .tbl, :scope > p, :scope > div')].filter(x=>!x.classList.contains('lpart-n'));
+    list.forEach(pp=>{const key=tg.lid+':'+pp.after;const m=document.createElement('div');m.className='ipop'+(popDone.has(key)?' done':'');m.dataset.ipop=String(pp.after);m.dataset.lid=tg.lid;
+      m.innerHTML=`<span class="ipop-ic">?</span><span><b>${popDone.has(key)?'Quick question — answered':'Quick question'}</b><small>${esc(pp.q)}</small></span><button class="donebtn" data-ipop="${pp.after}" data-lid="${esc(tg.lid)}">${popDone.has(key)?'Answer again':'Answer'}</button>`;
+      const at=parts[Math.min(parts.length-1,Math.max(0,pp.after))];if(at&&at.parentNode===host)at.after(m);else host.append(m);if(!popDone.has(key))watch.push(m)})});
+  if(watch.length&&'IntersectionObserver' in window){_popObs=new IntersectionObserver(ents=>{ents.forEach(en=>{if(!en.isIntersecting)return;const a=+en.target.dataset.ipop,lid=en.target.dataset.lid,key=lid+':'+a;_popObs.unobserve(en.target);
+    if(popDone.has(key)||!document.getElementById('popModal').hidden)return;const pp=(POPS[lid]||[]).find(x=>x.after===a);if(pp)showPop(pp,()=>{markIpop(lid,a)},lid)})},{threshold:.9});
+    watch.forEach(el=>_popObs.observe(el))}}
+function markIpop(lid,a){const el=document.querySelector(`.ipop[data-ipop="${a}"][data-lid="${lid}"]`)||document.querySelector(`.ipop[data-ipop="${a}"]`);if(el&&popDone.has(lid+':'+a)){el.classList.add('done');el.querySelector('b').textContent='Quick question — answered';el.querySelector('button').textContent='Answer again'}}
+document.addEventListener('click',e=>{const b=e.target.closest('button[data-ipop]');if(!b)return;const lv=document.getElementById('lessonView');const lid=b.dataset.lid||(lv&&lv.dataset.cur);const a=+b.dataset.ipop;const pp=(POPS[lid]||[]).find(x=>x.after===a);if(pp)showPop(pp,()=>markIpop(lid,a),lid)});
 function closeLessonView(){stopPlayer();T=null;const lv=document.getElementById('lessonView');const was=lv.dataset.cur||'';lv.hidden=true;lv.dataset.cur='';if(window.__backToStep){window.__backToStep=false;const l=byId(was);const pid=l?l.part.id:(was.includes(':')&&!was.startsWith('pre:')?was.split(':')[0]:'');if(pid&&partById(pid))setTimeout(()=>openPartView(pid),0)}document.getElementById('courseList').hidden=false;renderMap();refreshTOC()}
 
 /* ---------- PRE-READ ---------- */
@@ -3055,7 +3067,7 @@ function goLesson(id,term){showTab('course');openLessonView(id);const lv=documen
 const SYN={kontrak:'contract',perpanjang:'renewal',perpanjangan:'renewal',cuti:'leave',sakit:'sick',lembur:'overtime',guru:'teacher','orang tua':'parent',ortu:'parent',murid:'student',siswa:'student',keluar:'resign',berhenti:'resign',quit:'resign',fire:'renew',terminate:'renewal',peringatan:'warning',sp:'warning letter',rekrut:'hiring',recruit:'hiring',hire:'hiring',jadwal:'schedule',laporan:'report',observasi:'observation',observe:'observation',pindah:'moving',relocation:'moving',promosi:'promotion',retensi:'retention',stay:'retention',complaint:'nps',keluhan:'nps',absen:'attendance','new hire':'new teacher',onboarding:'new teacher',insentif:'incentive',bonus:'incentive',gaji:'payroll',salary:'payroll',pay:'incentive',sp1:'sp1',sp2:'sp2',sp3:'sp3',surat:'warning',perilaku:'behaviour',behavior:'behaviour',telat:'late',terlambat:'late',kinerja:'score',penilaian:'score',rapor:'progress report',lapor:'report',perbaikan:'maintenance',rusak:'maintenance',pengadaan:'procurement',acting:'acting',plt:'acting',pjs:'acting','acting tl':'acting teacher leader','acting st':'acting senior teacher',readiness:'acting',orangtua:'parent','what to say':'you say',ide:'idea',ideas:'idea',aktivitas:'activity',kegiatan:'activity',game:'activity',permainan:'activity',wisuda:'graduation',kelulusan:'graduation',orientasi:'orientation',pelatihan:'training',seragam:'dress',baju:'dress',hp:'phone',native:'international',asing:'international',kalender:'calendar',libur:'holiday',materi:'material',buku:'material',dhc:'dhc',bootcamp:'bootcamp',sepa:'sepa',handphone:'phone',keselamatan:'safety',anak:'child',dasbor:'dashboard',dashboard:'dashboard',sentimen:'sentiment',harian:'day','sehari-hari':'day',tugas:'responsibilities',tanggung:'responsibilities',tujuan:'goal',target:'goal',pilar:'pillar',tes:'test',kuis:'test',ujian:'test','pre test':'pre-test','post test':'post-test',tanda:'warning',sinyal:'warning'};
 const INDEX=[];
 function buildIndex(){
-  ALL.forEach(l=>{const flow=l.flow?FLOWS[l.flow]:null;const ftxt=flow?flow.title+' '+flow.nodes.map(n=>[n.x,n.w,n.yes,n.no,(n.d||[]).map(d=>d.n).join(' ')].join(' ')).join(' '):'';INDEX.push({k:'Lesson',t:l.title,s:`Step ${l.pi+1} · ${l.session.title}`,txt:[l.title,l.main,strip(l.body||''),ftxt,strip(l.deeper||''),strip(EXTRA[l.id]||''),(l.check||[]).map(c=>c.q+' '+c.a).join(' ')].join(' '),go:term=>goLesson(l.id,term)})});
+  ALL.forEach(l=>{const flow=l.flow?FLOWS[l.flow]:null;const ftxt=flow?flow.title+' '+flow.nodes.map(n=>[n.x,n.w,n.yes,n.no,(n.d||[]).map(d=>d.n).join(' ')].join(' ')).join(' '):'';INDEX.push({k:'Lesson',t:l.title,s:`Step ${l.pi+1} · ${l.session.title}`,txt:[l.title,l.main,strip(l.body||''),ftxt,strip(l.deeper||''),strip(EXTRA[l.id]||''),(l.check||[]).map(c=>c.q+' '+c.a).join(' '),(l.parts||[]).map(pt=>[pt.title,pt.main,strip(pt.body||''),strip(pt.deeper||''),strip(EXTRA[pt.id]||''),pt.flow&&FLOWS[pt.flow]?FLOWS[pt.flow].title:''].join(' ')).join(' ')].join(' '),go:term=>goLesson(l.id,term)})});
   PREREAD.forEach((st,i)=>INDEX.push({k:'Pre-read',t:st.title,s:'Start here: Pre-read',txt:st.title+' '+strip(st.html)+' '+st.q.q,go:term=>{showTab('course');if(i>PRE){openPre(PRE);return}openPre(i);const lv=document.getElementById('lessonView');highlight(lv,term);const f=lv.querySelector('mark.hit');if(f)setTimeout(()=>f.scrollIntoView({block:'center'}),50)}}));
   PARTS.forEach((p,pi)=>INDEX.push({k:'Part',t:`Step ${pi+1}: ${p.q}`,s:'Course map',txt:p.q+' '+p.desc+' pre-test post-test test quiz',go:()=>{showTab('course');closeLessonView();openPartView(p.id);const el=document.getElementById('P-'+p.id);flash(el)}}));
   Object.entries(FLOWS).forEach(([id,f])=>INDEX.push({k:'Flowchart',t:f.title,s:'Flowchart library',txt:f.title+' '+f.nodes.map(n=>[n.x,n.w,n.yes,n.no,(n.d||[]).map(d=>d.n).join(' ')].join(' ')).join(' '),go:term=>{showTab('flows');const el=document.getElementById('FL-'+id);el.open=true;highlight(el,term);flash(el)}}));
@@ -3084,7 +3096,7 @@ document.getElementById('quick').innerHTML=['what to say','dashboard','typical d
 document.getElementById('quick').addEventListener('click',e=>{const c=e.target.closest('[data-q]');if(c){qEl.value=c.dataset.q;search();qEl.focus()}});
 
 /* ---------- BOOT ---------- */
-document.getElementById('refcard').href=U.tlonb;
+
 renderCourse();renderFO();renderFlows();renderTools();renderDash();renderGloss();buildIndex();foIndex();updateProgress();
 let tab=load('tlm-tab','"course"');if(!PANELS.includes(tab))tab='course';
 const h=location.hash.slice(1);if(PANELS.includes(h))tab=h;
@@ -3159,7 +3171,7 @@ const VIEW = { observe:()=>vObserve(), audit:()=>vAudit(), nh:()=>vNH(), life:()
 const HEAD = {
   observe:['Formal Observation','Observe, score, give feedback','Take notes in class. Each note is linked to a rubric item and suggests a score. You check every score, add feedback, then generate the filled master rubric sheet and send it to the teacher.'],
   audit:['Formal Observation','FO audit','Who is due, who is overdue, and whether every FO has notes, a rubric sheet sent to the teacher and a Teacher Activity Tracker entry.'],
-  nh:['New hire checklist','From STAR LMS','Where every new teacher in your center stands on the STAR New Hire Checklist: what is done, what waits for the center, what was returned, and the deadline. New teachers submit in STAR and the center approves in STAR — this page shows the status, so you can follow up without opening STAR.'],
+  nh:['New hire checklist','New teachers, center by center','Where each new teacher stands in the STAR checklist, and what needs your approval.'],
   life:['Teacher lifecycle','From CV to sign-off','Every step from the day a CV arrives to the day a teacher leaves. Each lane is who does the step. Press a step to see what happens and open the tool for it.'],
   perf:['L&D overview','Teacher performance','Every teacher in every center: latest Formal Observation and trend, whether their Teacher Leader keeps the FO cycle, role-play readiness, who is on a PIP, and contract renewals. Read only — for L&D.'],
   acting:['16 Nov – 31 Dec 2026','Acting period','At least 2 deliverables a week, L&D quality check, the three checkpoints and the final result.'],
@@ -4458,46 +4470,71 @@ function nhFoot(){ return `<p class="note">From STAR LMS${NH.updatedAt ? ', upda
 /* Home card — the first thing a center team sees after sign-in */
 function nhCard(){
   if (!NH.loaded || NH.err) return '';
+  if (!nhOpen().length) return '';   // nothing to show on Home when nobody is in onboarding
   const hs = nhSorted(nhOpen()), wait = NH.rows.reduce((a, r) => a + (+r.Waiting || 0), 0);
   const rows = hs.slice(0, 6).map(r => `<button class="nhrow" data-nhopen="${esc(r.UserID)}"><span class="nhwho"><b>${esc(r.Name)}</b><small>${esc(r.Placement)} · ${esc(r.Batch)} · ${esc(nhDue(r))}</small></span><span class="nhbar"><i style="width:${+r.Pct || 0}%"></i></span><span class="nhnum">${esc(r.Done)}/${esc(r.Required)}</span>${nhPill(r.Status)}</button>`).join('');
   return `<section class="card dpanel nhhome"><div class="dph"><div><div class="eyebrow">Center team · New hire checklist (STAR)</div><h3>${hs.length ? `${hs.length} new teacher${hs.length > 1 ? 's' : ''} in onboarding${wait ? ` · ${wait} item${wait > 1 ? 's' : ''} waiting for your approval` : ''}` : 'No new teachers in onboarding right now'}</h3></div>
     <div class="xrow">${wait ? `<a class="dbtn pri" href="${esc(NH.starUrl)}" target="_blank" rel="noopener">Approve in STAR ↗</a>` : ''}<button class="dbtn" data-tab="nh">See every checklist</button></div></div>
     ${hs.length ? `<div class="nhlist">${rows}</div>${hs.length > 6 ? `<p class="note">+ ${hs.length - 6} more in the checklist.</p>` : ''}` : '<p class="note">New teachers from STAR LMS show up here as soon as their batch is set.</p>'}${nhFoot()}</section>`;
 }
+/* Center-based view: one card per center, one row per new teacher, tap a teacher to see only what is left. */
+function nhCenterOf(r){ return String(r.Placement || '—').trim().toUpperCase(); }
 function vNH(){
   if (!NH.loaded) return '<p class="muted">Loading the checklist from STAR…</p>';
   if (NH.err) return `<div class="callout bad xstack"><b>Could not read the STAR checklist.</b><span class="small">${esc(NH.err)}</span><div><button class="xbtn" data-act="nhreload">Try again</button></div></div>`;
   const q = NH.q.trim().toLowerCase();
   const pool = NH.filter === 'open' ? nhOpen() : NH.filter === 'you' ? NH.rows.filter(nhNeedsYou) : NH.filter === 'done' ? NH.rows.filter(r => r.Status === 'Complete') : NH.rows;
   const list = nhSorted(pool.filter(r => !q || (r.Name + ' ' + r.Placement + ' ' + r.Batch + ' ' + r.Position).toLowerCase().includes(q)));
-  const r = NH.rows.find(x => x.UserID === NH.sel) || list[0];
-  const chips = [['you','Needs you', NH.rows.filter(nhNeedsYou).length], ['open','In onboarding', nhOpen().length], ['done','Complete', NH.rows.filter(x => x.Status === 'Complete').length], ['all','All', NH.rows.length]]
-    .map(([k, l, n]) => `<button data-act="nhfilter" data-v="${k}" aria-pressed="${NH.filter === k}">${l} (${n})</button>`).join('');
-  const side = list.length ? list.map(x => `<button class="nhpick ${r && x.UserID === r.UserID ? 'on' : ''}" data-act="nhsel" data-id="${esc(x.UserID)}"><b>${esc(x.Name)}${x.SameName === 'Yes' ? ' ⚠' : ''}</b><small>${esc(x.Placement)} · ${esc(x.Position)} · ${esc(x.Batch)}</small><span class="nhbar"><i style="width:${+x.Pct || 0}%"></i></span><span class="xrow xbetween small"><span>${esc(x.Done)}/${esc(x.Required)} done</span>${nhPill(x.Status)}</span></button>`).join('')
-    : `<p class="muted small">${NH.rows.length ? 'No one in this list.' : `No new teachers from STAR for ${esc((NH.centers || []).join(', ') || 'your center')} yet. STAR lists teachers from Batch 45 (2 Nov 2026) on; Teaching Assistants and teachers who onboarded before STAR are not in it.`}</p>`;
-  return `<div class="callout xstack"><span class="small">This checklist lives in <b>STAR LMS</b>. New teachers submit each item there, and the center approves it there. Here you can see where every new teacher in ${S.user.admin ? 'every center' : 'your center'} stands, without opening STAR.</span>
-      <div class="xrow"><a class="xbtn primary" href="${esc(NH.starUrl)}" target="_blank" rel="noopener">Open STAR LMS to approve ↗</a><button class="xbtn" data-act="nhreload">Refresh</button>${NH.sheetUrl ? `<a class="xbtn ghost" href="${esc(NH.sheetUrl)}" target="_blank" rel="noopener">Status sheet ↗</a>` : ''}</div></div>
-    <div class="nhgrid"><div class="xstack nhside"><div class="xseg nhchips">${chips}</div><input class="xinput" data-nhq="1" placeholder="Search name, center, batch" value="${esc(NH.q)}">${side}</div>
-    <div class="xstack">${r ? nhDetail(r) : '<div class="xcard"><p class="muted">Choose a teacher.</p></div>'}${nhFoot()}</div></div>`;
+  const wait = NH.rows.reduce((t, r) => t + (+r.Waiting || 0), 0), needs = NH.rows.filter(nhNeedsYou).length, open = nhOpen().length;
+  const by = {}; list.forEach(r => { const c = nhCenterOf(r); (by[c] = by[c] || []).push(r); });
+  const score = rs => rs.filter(nhNeedsYou).length * 100 + rs.filter(r => r.Status === 'Overdue').length;
+  const centers = Object.keys(by).sort((x, y) => score(by[y]) - score(by[x]) || x.localeCompare(y));
+  NH.copen = NH.copen || {};
+  const one = centers.length === 1;
+  const chips = [['you','Needs you', needs], ['open','In onboarding', open], ['done','Complete', NH.rows.filter(x => x.Status === 'Complete').length], ['all','All', NH.rows.length]]
+    .map(([k, l, n]) => `<button data-act="nhfilter" data-v="${k}" aria-pressed="${NH.filter === k}">${l} <span>${n}</span></button>`).join('');
+  const row = r => { const sel = NH.sel === r.UserID, due = nhDue(r);
+    return `<div class="nhr ${sel ? 'on' : ''}"><button class="nhr-b" data-act="nhsel" data-id="${esc(r.UserID)}" aria-expanded="${sel}">
+        <span class="nhr-n"><b>${esc(r.Name)}</b><small>${esc(r.Position)} · ${esc(r.Batch)}</small></span>
+        <span class="nhr-p"><span class="nhbar"><i style="width:${+r.Pct || 0}%"></i></span><small>${esc(r.Done)}/${esc(r.Required)}</small></span>
+        <span class="nhr-s">${nhPill(r.Status)}${+r.Waiting ? `<small class="nhwait">${+r.Waiting} to approve</small>` : `<small>${esc(due)}</small>`}</span>
+        <span class="nhr-c" aria-hidden="true"></span></button>${sel ? nhDetail(r) : ''}</div>`; };
+  const card = c => { const rs = by[c], od = rs.filter(r => r.Status === 'Overdue').length, wt = rs.reduce((t, r) => t + (+r.Waiting || 0), 0);
+    const avg = Math.round(rs.reduce((t, r) => t + (+r.Pct || 0), 0) / rs.length), isOpen = NH.copen[c] != null ? NH.copen[c] : (one || (!!q) || rs.some(r => r.UserID === NH.sel));
+    return `<details class="xcard nhc" data-nhc="${esc(c)}" ${isOpen ? 'open' : ''}><summary><div class="nhc-t"><b>${esc(c.replace(/^SE-/, ''))}</b><span class="muted small">${rs.length} new teacher${rs.length === 1 ? '' : 's'}</span></div>
+        <div class="nhc-m">${wt ? `<span class="nhpill warn">${wt} to approve</span>` : ''}${od ? `<span class="nhpill bad">${od} overdue</span>` : ''}${!wt && !od ? '<span class="nhpill">On track</span>' : ''}</div>
+        <div class="nhc-p"><span class="nhbar"><i style="width:${avg}%"></i></span><small>${avg}%</small></div><span class="tsec-c" aria-hidden="true"></span></summary>
+      <div class="nhc-b">${rs.map(row).join('')}</div></details>`; };
+  return `<div class="xstack nhpage">
+    <section class="xcard nhtop"><div><b>${open} new teacher${open === 1 ? '' : 's'} in onboarding</b><span class="muted small">${needs ? `${needs} need${needs === 1 ? 's' : ''} you` : 'nobody needs you right now'}${wait ? ` · ${wait} item${wait === 1 ? '' : 's'} waiting for approval` : ''}</span></div>
+      <div class="xrow" style="gap:8px"><a class="xbtn sm primary" href="${esc(NH.starUrl)}" target="_blank" rel="noopener">Approve in STAR LMS ↗</a><button class="xbtn sm ghost" data-act="nhreload">Refresh</button></div></section>
+    <div class="nhbarrow"><div class="nhseg">${chips}</div><input class="xinput sm" data-nhq="1" placeholder="Find a teacher or center" value="${esc(NH.q)}"></div>
+    ${centers.length ? centers.map(card).join('') : `<p class="muted small">${NH.rows.length ? 'No one in this list.' : `No new teachers from STAR for ${esc((NH.centers || []).join(', ') || 'your center')} yet. STAR lists teachers from Batch 45 (2 Nov 2026) on; Teaching Assistants and teachers who onboarded before STAR are not in it.`}</p>`}
+    <p class="note">The checklist lives in STAR LMS: teachers submit there and the center approves there. This page shows where everyone stands${NH.updatedAt ? ' · updated ' + esc(NH.updatedAt) : ''} (STAR refreshes it every 10 minutes).${NH.sheetUrl ? ` <a href="${esc(NH.sheetUrl)}" target="_blank" rel="noopener">Status sheet ↗</a>` : ''}</p></div>`;
 }
+/** One teacher, opened in the center list: only what is left; done items folded. */
 function nhDetail(r){
-  const items = NH.items.slice().sort((a, b) => (+a.Order || 0) - (+b.Order || 0)), secs = [...new Set(items.map(i => i.Section))];
-  const t = r._nrp && S.teachers.find(x => x.nrp === r._nrp);
-  const same = NH.rows.filter(x => x.NameKey === r.NameKey && x.UserID !== r.UserID);
-  return `<div class="xcard xstack"><div class="xrow xbetween"><div><span class="eyebrow">${esc(r.Placement)} · ${esc(r.Batch)}</span><h2>${esc(r.Name)}</h2>
-      <p class="muted small">${esc(r.Position)} · ${esc(r.Type)} · STAR ${esc(r.UserID)}${r.Email ? ' · ' + esc(r.Email) : ''}</p></div>
-      <div style="text-align:right">${nhPill(r.Status)}<div class="mono" style="margin-top:6px"><b>${esc(r.Done)}/${esc(r.Required)}</b> · ${esc(r.Pct)}%</div><div class="muted small">${esc(nhDue(r))}</div></div></div>
-    <div class="nhbar big"><i style="width:${+r.Pct || 0}%"></i></div>
-    <div class="xrow">${nhCounts(r)}${r.SLSA ? `<span class="nhpill mute">SLSA enrichment ${esc(r.SLSA)} (optional)</span>` : ''}</div>
-    ${r.SameName === 'Yes' ? `<div class="callout warn small">Another STAR account has the same name${same.length ? ` (${same.map(x => esc(x.Placement + ' · ' + x.Batch)).join('; ')})` : ''}. Check the center and batch before acting on this one.</div>` : ''}
-    ${+r.Waiting ? `<div class="callout warn small"><b>${+r.Waiting} item${+r.Waiting > 1 ? 's' : ''} waiting for the center.</b> Approve or return ${+r.Waiting > 1 ? 'them' : 'it'} in <a href="${esc(NH.starUrl)}" target="_blank" rel="noopener">STAR LMS ↗</a> — this page only shows the status.</div>` : ''}
-    ${r.Status === 'Overdue' ? `<div class="callout bad small"><b>Past the deadline.</b> Talk to the teacher and the Senior Teacher today about what is left.</div>` : ''}</div>
-    ${secs.map(sec => `<section class="xstack"><h3 class="nhsec">${esc(sec)}</h3>${items.filter(i => i.Section === sec).map(i => { const st = r[i.ItemID] || 'Not started', done = ITEM_DONE.includes(st);
-      return `<div class="nhitem ${done ? 'done' : st === 'Returned' ? 'ret' : st === 'Not applicable' ? 'na' : ''}"><div class="nhtop"><div><span class="mono muted small">${esc(i.ItemID)}</span> <b>${esc(i.Task)}</b>${i.Required === 'No' ? ' <span class="xpill">optional</span>' : ''}${i.Approval === 'Auto' ? ' <span class="muted small">· ticked by STAR when the session is finished</span>' : ''}</div><span class="nhpill ${ITEM_TONE[st] || 'mute'}">${esc(st)}</span></div></div>`; }).join('')}</section>`).join('')}
-    ${t ? `<div class="xrow"><button class="xbtn ghost" data-act="nhfo" data-nrp="${esc(t.nrp)}">Start the 1st-month FO for ${esc(t.name.split(' ')[0])}</button></div>` : ''}`;
+  const items = NH.items.slice().sort((a, b) => (+a.Order || 0) - (+b.Order || 0)), st = i => r[i.ItemID] || 'Not started';
+  const t = r._nrp && S.teachers.find(x => x.nrp === r._nrp), same = NH.rows.filter(x => x.NameKey === r.NameKey && x.UserID !== r.UserID);
+  const grp = (title, tone, list, hint) => list.length ? `<div class="nhg"><div class="nhg-h"><span class="nhpill ${tone}">${list.length}</span><b>${title}</b>${hint ? `<span class="muted small">${hint}</span>` : ''}</div>
+    <ul>${list.map(i => `<li>${esc(i.Task)}${i.Required === 'No' ? ' <span class="muted small">(optional)</span>' : ''}<span class="muted small">${esc(i.Section)}</span></li>`).join('')}</ul></div>` : '';
+  const waitL = items.filter(i => st(i) === 'Waiting for center'), retL = items.filter(i => st(i) === 'Returned');
+  const todo = items.filter(i => !ITEM_DONE.includes(st(i)) && st(i) !== 'Waiting for center' && st(i) !== 'Returned' && i.Required !== 'No');
+  const doneL = items.filter(i => ITEM_DONE.includes(st(i)));
+  return `<div class="nhd">
+    ${r.SameName === 'Yes' ? `<div class="callout warn small">Another STAR account has the same name${same.length ? ` (${same.map(x => esc(x.Placement + ' · ' + x.Batch)).join('; ')})` : ''}. Check the center and batch first.</div>` : ''}
+    ${r.Status === 'Overdue' ? `<div class="nhnote bad">Past the deadline (${esc(nhDue(r))}). Talk to ${esc(r.Name)} and the Senior Teacher today about what is left.</div>` : ''}
+    ${grp('Waiting for your approval', 'warn', waitL, waitL.length ? `<a href="${esc(NH.starUrl)}" target="_blank" rel="noopener">Approve in STAR ↗</a>` : '')}
+    ${grp('Returned to the teacher', 'bad', retL, 'they need to fix and send again')}
+    ${todo.length ? `<div class="nhg"><div class="nhg-h"><span class="nhpill mute">${todo.length}</span><b>Still to do</b><span class="muted small">${esc(nhDue(r))}</span></div>
+      ${[...new Set(todo.map(i => i.Section))].map(sec => { const l = todo.filter(i => i.Section === sec); return `<div class="nhsecrow"><span>${esc(sec)}</span><b>${l.length} left</b><small>${l.map(i => esc(i.Task)).join(' · ')}</small></div>`; }).join('')}</div>` : ''}
+    ${!waitL.length && !retL.length && !todo.length ? '<div class="nhnote good">Everything required is done.</div>' : ''}
+    ${doneL.length ? `<details class="nhdone"><summary class="small">Done (${doneL.length})</summary><ul>${doneL.map(i => `<li>${esc(i.Task)}</li>`).join('')}</ul></details>` : ''}
+    <div class="xrow" style="gap:8px;flex-wrap:wrap"><span class="muted small">${esc(r.Type)} · STAR ${esc(r.UserID)}${r.Email ? ' · ' + esc(r.Email) : ''}${r.SLSA ? ' · SLSA enrichment ' + esc(r.SLSA) + ' (optional)' : ''}</span>
+      ${t ? `<button class="xbtn sm ghost" data-act="nhfo" data-nrp="${esc(t.nrp)}">Start the 1st-month FO</button>` : ''}</div></div>`;
 }
 const NH_ACTS = {
-  nhsel: a => { NH.sel = a.dataset.id; rerender(false); window.scrollTo(0, 0); },
+  nhsel: a => { NH.sel = NH.sel === a.dataset.id ? '' : a.dataset.id; rerender(false); },
   nhfilter: a => { NH.filter = a.dataset.v; NH.sel = ''; rerender(false); },
   nhreload: a => { a.disabled = true; a.textContent = 'Loading…'; NH.loaded = false; rerender(false); loadNH(); },
   nhfo: a => { const t = S.teachers.find(x => x.nrp === a.dataset.nrp); startWith('FO', t ? Object.assign({}, t) : null); }
@@ -4509,7 +4546,7 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-nhopen]'); if (!b) return;
-  NH.sel = b.dataset.nhopen; NH.filter = 'all'; showTab('nh'); window.scrollTo(0, 0);
+  NH.sel = b.dataset.nhopen; NH.filter = 'all'; NH.copen = {}; showTab('nh'); window.scrollTo(0, 0);
 });
 
 /* ===================== LIFECYCLE SWIMLANE ===================== */
@@ -4764,16 +4801,16 @@ function vLd(sec){
 }
 /* ---------- learning channels (fixed list; edit here) ---------- */
 const LD_CHANNELS = [
-  { icon: 'library', name: 'STAR Library', who: 'Teacher Leaders · Senior Teachers', tag: 'Mentoring & in-center training', url: 'https://sparksenglish.github.io/star-library/#/', btn: 'Open STAR Library',
+  { icon: 'library', logo: 'logos/star-library.png', logoH: 56, name: 'STAR Library', who: 'Teacher Leaders · Senior Teachers', tag: 'Mentoring & in-center training', url: 'https://sparksenglish.github.io/star-library/#/', btn: 'Open STAR Library',
     lead: 'Your go-to place for mentoring and for the latest L&D materials. It replaces Google Classroom.',
     points: ['Find the newest training decks and teacher guides in one place, always up to date.', 'Run your mentoring or training session in the center straight from the deck.', 'Go live: the pre-test, the session and the post-test all run live in the room, so you see the results on the spot.'] },
-  { icon: 'flag', name: 'Onboarding LMS', who: 'New hires · their Teacher Leader', tag: 'Day one for every new hire', url: 'https://s.id/OnboardingLMS', btn: 'Open Onboarding LMS',
+  { icon: 'flag', logo: 'logos/sparks-english.png', logoH: 40, name: 'Onboarding LMS', who: 'New hires · their Teacher Leader', tag: 'Day one for every new hire', url: 'https://s.id/OnboardingLMS', btn: 'Open Onboarding LMS',
     lead: 'The starting point for every new hire: the hygiene modules on getting to know Sparks English.',
     points: ['Send every new teacher here on their first day.', 'Check they finish the hygiene modules before they start teaching on their own.'] },
-  { icon: 'book', name: 'Curriculum Playbook', who: 'Everyone who teaches', tag: 'Curriculum reference', url: 'https://s.id/CurriculumPlaybook', btn: 'Open the Playbook', note: 'Available now · under maintenance soon',
+  { icon: 'book', logo: 'playbook', name: 'Curriculum Playbook', who: 'Everyone who teaches', tag: 'Curriculum reference', url: 'https://s.id/CurriculumPlaybook', btn: 'Open the Playbook', note: 'Available now · under maintenance soon',
     lead: 'The reference for how our programs and levels are taught.',
     points: ['Use it to plan lessons and to check the curriculum standards.', 'It will be under maintenance soon while we make some changes. We will tell you in News flash when it is back.'] },
-  { icon: 'mic', name: 'Sparks Leadership & Speech Academy (SLSA)', who: 'Teacher Leaders · SLSA teachers', tag: 'SLSA program & demo teaching', url: 'https://s.id/SLSALMS', btn: 'Open SLSA LMS', url2: 'https://s.id/DemoTeachingSLSA', btn2: 'Book demo teaching',
+  { icon: 'mic', logo: 'logos/slsa.png', logoH: 72, name: 'Sparks Leadership & Speech Academy (SLSA)', who: 'Teacher Leaders · SLSA teachers', tag: 'SLSA program & demo teaching', url: 'https://s.id/SLSALMS', btn: 'Open SLSA LMS', url2: 'https://s.id/DemoTeachingSLSA', btn2: 'Book demo teaching',
     lead: 'Everything about SLSA: the program, the readiness track and what each teacher needs to get certified.',
     points: ['Read the details of SLSA before you assign a teacher to it.', 'Book a demo teaching session for your teacher with the booking link.'] }];
 const LD_ICONS = {
@@ -4781,12 +4818,20 @@ const LD_ICONS = {
   flag: '<path d="M10 40V6"/><path d="M10 8h20l-4 6 4 6H10"/><circle cx="32" cy="34" r="2.5"/><path d="M13 34h8M25 34h4"/>',
   book: '<path d="M22 12c-4-3-10-3-16-2v24c6-1 12-1 16 2 4-3 10-3 16-2V10c-6-1-12-1-16 2z"/><path d="M22 12v24"/><path d="M28 10v9l2.5-2 2.5 2v-9.6"/>',
   mic: '<rect x="16" y="5" width="12" height="20" rx="6"/><path d="M10 20a12 12 0 0 0 24 0"/><path d="M22 32v6M16 38h12"/>' };
+/* Curriculum Playbook mark, drawn in the Sparks English colours (green #37B54A, yellow #FDD20A): an open book with the Sparks star. */
+const PLAYBOOK_LOGO = `<svg class="pblogo" viewBox="0 0 206 64" role="img" aria-label="Curriculum Playbook logo">
+  <path d="M6 22c9-5 19-5 27 1v33c-8-6-18-6-27-1z" fill="#37B54A"/><path d="M35 23c8-6 18-6 27-1v33c-9-5-19-5-27 1z" fill="#2C9A3E"/>
+  <path d="M33 23v33" stroke="#fff" stroke-width="2"/><path d="M41 31h14M41 37h14M41 43h10" stroke="#ffffff" stroke-opacity=".7" stroke-width="2" stroke-linecap="round"/>
+  <path d="M50 2l2.6 6.4 6.9.4-5.3 4.4 1.7 6.7L50 16.2 44.1 19.9l1.7-6.7-5.3-4.4 6.9-.4z" fill="#FDD20A"/>
+  <path d="M38 18l5-5M33 16l4-4" stroke="#FDD20A" stroke-width="2" stroke-linecap="round"/>
+  <text x="72" y="32" font-family="Poppins, system-ui, sans-serif" font-size="19" font-weight="700" fill="#37B54A">Curriculum</text>
+  <text x="72" y="55" font-family="Poppins, system-ui, sans-serif" font-size="19" font-weight="500" fill="#E8BE00">Playbook</text></svg>`;
 function ldLinksHtml(){
   return `<div class="xstack ldch"><p class="muted small" style="margin:0">We no longer use Google Classroom. These are the L&amp;D platforms your center uses, and what each one is for.</p>
     ${LD_CHANNELS.map((c, i) => `<article class="xcard ldchc${c.note ? ' maint' : ''}"><div class="ldch-txt">
         <span class="ldch-eye">${i + 1} · ${esc(c.tag)}</span><div class="ldch-h"><h3>${esc(c.name)}</h3>${c.note ? `<span class="xpill warn">${esc(c.note)}</span>` : ''}</div><div class="mut small">For ${esc(c.who)}</div>
         <p class="ldch-lead">${esc(c.lead)}</p><ul class="ldch-ul">${c.points.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>
-      <div class="ldch-side"><div class="ldch-ic" aria-hidden="true"><svg viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${LD_ICONS[c.icon] || ''}</svg></div>
+      <div class="ldch-side"><div class="ldch-logo">${c.logo === 'playbook' ? PLAYBOOK_LOGO : c.logo ? `<img src="${esc(c.logo)}" alt="${esc(c.name)} logo" style="height:${c.logoH || 56}px" loading="lazy">` : `<div class="ldch-ic" aria-hidden="true"><svg viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${LD_ICONS[c.icon] || ''}</svg></div>`}</div>
         <a class="xbtn sm primary" href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.btn)} ↗</a>${c.url2 ? `<a class="xbtn sm" href="${esc(c.url2)}" target="_blank" rel="noopener">${esc(c.btn2)} ↗</a>` : ''}</div></article>`).join('')}</div>`;
 }
 /* ---------- news flash ---------- */
@@ -6272,7 +6317,7 @@ document.addEventListener('change', e => {
 /* ===================== TEACHER PERFORMANCE (L&D overview, all centers) ===================== */
 /* For the people in Settings → performance_dashboard_emails (and admins): every teacher in every center —
    latest FO and trend, FO coverage (TL compliance), role-play readiness, PIP and renewal — per center and per teacher. */
-const TL_BUILD = 'v14.47 · 28 Nov 2026';
+const TL_BUILD = 'v14.49 · 28 Nov 2026';
 /* L&D can preview the page exactly as a center team sees it (same filtering the server does for a TL / CM). */
 function perfMode(){ return PERF.preview || PERF.scope === 'center' ? 'center' : 'all'; }
 function perfMine(){ return PERF.preview ? [PERF.preview] : (PERF.myCenters || []); }
@@ -7139,6 +7184,7 @@ document.addEventListener('input', e => { const t = e.target, ds = t.dataset || 
   if (ds.actm && ACT.meet){ ACT.meet[ds.actm] = t.value; const b = document.querySelector('[data-act="act_meetsave"]'); if (b && !ACT.busy) b.disabled = !ACT.meet.date || !ACT.meet.start; return; }
   if (ds.actc && ACT.chk && t.tagName !== 'SELECT'){ ACT.chk[ds.actc] = t.value; return; }
   if (ds.actd && ACT.dec){ ACT.dec[ds.actd] = t.value; if (ds.actd === 'adj') rerender(); } });
+document.addEventListener('toggle', e => { const t = e.target; if (t && t.dataset && t.dataset.nhc){ NH.copen = NH.copen || {}; NH.copen[t.dataset.nhc] = t.open; } }, true);
 document.addEventListener('toggle', e => { const t = e.target; if (t && t.dataset && t.dataset.mkey){ LD.mopen = LD.mopen || {}; LD.mopen[t.dataset.mkey] = t.open; } }, true);
 document.addEventListener('change', e => { const t = e.target; if (t && t.dataset && t.dataset.ldnotify != null && LD.tform) LD.tform.notify = t.checked; });
 document.addEventListener('change', e => { const t = e.target, ds = t.dataset || {}; if (ds.actm && ACT.meet){ ACT.meet[ds.actm] = t.value; return; }
@@ -7383,6 +7429,25 @@ load();
 .t2 .furow-h{display:flex;align-items:center;justify-content:flex-start;gap:10px;flex-wrap:wrap;width:100%}.t2 .furow-n{min-width:170px;font-size:14px;text-align:left;margin:0}.t2 .furow-h .linkbtn{margin-left:auto;color:var(--muted);font-size:12.5px;font-weight:400;text-decoration:none}.t2 .furow-h .linkbtn:hover{text-decoration:underline}
 .t2 .fupage .furow>.xinput{max-width:100%}.t2 .xinput.sm{padding:7px 10px;font-size:13.5px}
 .t2 .fuall{gap:8px;padding:10px 12px}
+.nhpage .nhtop{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 16px}.nhpage .nhtop>div:first-child{display:flex;flex-direction:column;gap:2px}.nhpage .nhtop b{font-size:16px}
+.nhbarrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.nhbarrow .xinput{flex:1;min-width:200px;max-width:320px}
+.nhseg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card)}.nhseg button{border:0;border-right:1px solid var(--line);background:transparent;font:inherit;font-size:13px;padding:7px 12px;cursor:pointer;color:var(--ink)}
+.nhseg button:last-child{border-right:0}.nhseg button span{color:var(--muted);margin-left:2px}.nhseg button[aria-pressed="true"]{background:var(--green);color:var(--on-green);font-weight:600}.nhseg button[aria-pressed="true"] span{color:inherit;opacity:.8}
+.nhc{padding:0!important;overflow:hidden}.nhc>summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:minmax(150px,1.2fr) auto minmax(120px,1fr) 20px;gap:14px;align-items:center;padding:14px 16px}.nhc>summary::-webkit-details-marker{display:none}
+.nhc-t{display:flex;flex-direction:column}.nhc-t b{font-size:16px}.nhc-m{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.nhc-p,.nhr-p{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.nhc-p small,.nhr-p small{color:var(--muted);font-size:12px;min-width:34px;text-align:right}
+.nhc-b{border-top:1px solid var(--line)}
+.nhr{border-top:1px solid var(--line)}.nhr:first-child{border-top:0}.nhr.on{background:var(--bg)}
+.nhr-b{width:100%;display:grid;grid-template-columns:minmax(170px,1.4fr) minmax(120px,1fr) minmax(150px,auto) 16px;gap:14px;align-items:center;padding:11px 16px;border:0;background:transparent;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.nhr-b:hover{background:var(--bg)}.nhr-n{display:flex;flex-direction:column}.nhr-n small,.nhr-s small{color:var(--muted);font-size:12px}.nhr-s{display:flex;flex-direction:column;align-items:flex-end;gap:2px}.nhr-s .nhwait{color:var(--yellow-ink);font-weight:600}
+.nhr-c::after{content:'';display:block;width:7px;height:7px;border-right:1.6px solid var(--muted);border-bottom:1.6px solid var(--muted);transform:rotate(45deg);margin-top:-4px}.nhr.on .nhr-c::after{transform:rotate(-135deg);margin-top:4px}
+.nhd{padding:4px 16px 16px;display:flex;flex-direction:column;gap:12px}
+.nhg{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px}.nhg-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.nhg-h a{color:var(--green-ink);font-size:13px;margin-left:auto}
+.nhg ul,.nhdone ul{margin:8px 0 0;padding-left:18px;line-height:1.7;font-size:14px}.nhg li .muted{margin-left:8px}
+.nhnote{border-radius:10px;padding:9px 12px;font-size:13.5px}.nhnote.bad{background:var(--red-soft);color:var(--red-ink)}.nhnote.good{background:var(--green-soft);color:var(--green-ink)}
+.nhsecrow{display:grid;grid-template-columns:minmax(140px,180px) 70px minmax(0,1fr);gap:10px;align-items:baseline;padding:7px 0;border-top:1px solid var(--line);font-size:14px}.nhsecrow:first-of-type{margin-top:8px}.nhsecrow small{color:var(--muted);font-size:12.5px}
+@media(max-width:700px){.nhsecrow{grid-template-columns:1fr auto}.nhsecrow small{grid-column:1 / -1}}
+.nhdone>summary{cursor:pointer;color:var(--muted)}
+@media(max-width:700px){.nhc>summary{grid-template-columns:1fr auto;}.nhc-p{grid-column:1 / -1}.nhc>summary .tsec-c{display:none}.nhr-b{grid-template-columns:1fr auto}.nhr-p{grid-column:1 / -1;grid-row:2}.nhr-c{display:none}}
 .fugroup>.fucent>summary{cursor:pointer;color:var(--muted)}.fuall{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:12px;background:var(--bg);margin:6px 0}
 .fugroup.done>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;gap:12px}.fugroup.done>summary::-webkit-details-marker{display:none}.fusum{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:4px}
 .homonth>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px}.homonth>summary::-webkit-details-marker{display:none}.homonth-t{font-weight:600;font-size:16px}
@@ -7395,9 +7460,10 @@ load();
 .ldch-side{display:flex;flex-direction:column;align-items:stretch;gap:8px;padding-left:24px;border-left:1px solid var(--line)}
 .ldch-side .xbtn{justify-content:center;text-align:center;white-space:normal;line-height:1.3}
 .ldch-ic{width:72px;height:72px;border-radius:18px;background:var(--green-soft);color:var(--green-ink);display:flex;align-items:center;justify-content:center;align-self:center;margin-bottom:4px}
-.ldch-ic svg{width:38px;height:38px}.ldchc.maint .ldch-ic{background:var(--yellow-soft);color:var(--yellow-ink)}
+.ldch-ic svg{width:38px;height:38px}
+.ldch-logo{height:88px;display:flex;align-items:center;justify-content:center;margin-bottom:4px}.ldch-logo img{max-width:100%;object-fit:contain;display:block}.ldch-logo .pblogo{width:180px;height:auto}.ldchc.maint .ldch-ic{background:var(--yellow-soft);color:var(--yellow-ink)}
 .ldch-ul{margin-bottom:0!important}
-@media(max-width:700px){.ldchc{grid-template-columns:1fr;gap:12px}.ldch-side{padding-left:0;border-left:0;border-top:1px solid var(--line);padding-top:12px;flex-direction:row;flex-wrap:wrap;align-items:center}.ldch-ic{width:44px;height:44px;border-radius:12px;margin:0}.ldch-ic svg{width:24px;height:24px}}
+@media(max-width:700px){.ldch-logo{height:56px;justify-content:flex-start;margin:0 8px 0 0}.ldch-logo img{max-height:44px;width:auto}.ldch-logo .pblogo{width:130px}.ldchc{grid-template-columns:1fr;gap:12px}.ldch-side{padding-left:0;border-left:0;border-top:1px solid var(--line);padding-top:12px;flex-direction:row;flex-wrap:wrap;align-items:center}.ldch-ic{width:44px;height:44px;border-radius:12px;margin:0}.ldch-ic svg{width:24px;height:24px}}
 .ldch-lead{margin:10px 0 4px}.ldch-ul{margin:0 0 12px;padding-left:20px;line-height:1.6;font-size:14px}
 .t2 .actfb{display:flex;flex-direction:column;gap:2px;padding:10px 0;border-top:1px solid var(--line);font-size:14px}.t2 .actfb:first-of-type{border-top:0}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .t2 .actmeet{background:#1a2638}:root:not([data-theme="light"]) .t2 .actmeet>b,:root:not([data-theme="light"]) .t2 .actblue{color:#a9c4f0}:root:not([data-theme="light"]) .t2 .actck-c.set,:root:not([data-theme="light"]) .t2 .actsteps li.set .actsteps-n{background:#1a2638;color:#a9c4f0}:root:not([data-theme="light"]) .t2 .actmeet.none,:root:not([data-theme="light"]) .t2 .actmeet.edit{background:var(--bg)}}
