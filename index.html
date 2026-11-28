@@ -4764,23 +4764,30 @@ function vLd(sec){
 }
 /* ---------- learning channels (fixed list; edit here) ---------- */
 const LD_CHANNELS = [
-  { name: 'STAR Library', who: 'Teacher Leaders · Senior Teachers', tag: 'Mentoring & in-center training', url: 'https://sparksenglish.github.io/star-library/#/', btn: 'Open STAR Library',
+  { icon: 'library', name: 'STAR Library', who: 'Teacher Leaders · Senior Teachers', tag: 'Mentoring & in-center training', url: 'https://sparksenglish.github.io/star-library/#/', btn: 'Open STAR Library',
     lead: 'Your go-to place for mentoring and for the latest L&D materials. It replaces Google Classroom.',
     points: ['Find the newest training decks and teacher guides in one place, always up to date.', 'Run your mentoring or training session in the center straight from the deck.', 'Go live: the pre-test, the session and the post-test all run live in the room, so you see the results on the spot.'] },
-  { name: 'Onboarding LMS', who: 'New hires · their Teacher Leader', tag: 'Day one for every new hire', url: 'https://s.id/OnboardingLMS', btn: 'Open the Onboarding LMS',
+  { icon: 'flag', name: 'Onboarding LMS', who: 'New hires · their Teacher Leader', tag: 'Day one for every new hire', url: 'https://s.id/OnboardingLMS', btn: 'Open Onboarding LMS',
     lead: 'The starting point for every new hire: the hygiene modules on getting to know Sparks English.',
     points: ['Send every new teacher here on their first day.', 'Check they finish the hygiene modules before they start teaching on their own.'] },
-  { name: 'Curriculum Playbook', who: 'Everyone who teaches', tag: 'Curriculum reference', url: 'https://s.id/CurriculumPlaybook', btn: 'Open the Curriculum Playbook', note: 'Available now · under maintenance soon',
+  { icon: 'book', name: 'Curriculum Playbook', who: 'Everyone who teaches', tag: 'Curriculum reference', url: 'https://s.id/CurriculumPlaybook', btn: 'Open the Playbook', note: 'Available now · under maintenance soon',
     lead: 'The reference for how our programs and levels are taught.',
     points: ['Use it to plan lessons and to check the curriculum standards.', 'It will be under maintenance soon while we make some changes. We will tell you in News flash when it is back.'] },
-  { name: 'Sparks Leadership & Speech Academy (SLSA)', who: 'Teacher Leaders · SLSA teachers', tag: 'SLSA program & demo teaching', url: 'https://s.id/SLSALMS', btn: 'Open the SLSA LMS', url2: 'https://s.id/DemoTeachingSLSA', btn2: 'Book a demo teaching session',
+  { icon: 'mic', name: 'Sparks Leadership & Speech Academy (SLSA)', who: 'Teacher Leaders · SLSA teachers', tag: 'SLSA program & demo teaching', url: 'https://s.id/SLSALMS', btn: 'Open SLSA LMS', url2: 'https://s.id/DemoTeachingSLSA', btn2: 'Book demo teaching',
     lead: 'Everything about SLSA: the program, the readiness track and what each teacher needs to get certified.',
     points: ['Read the details of SLSA before you assign a teacher to it.', 'Book a demo teaching session for your teacher with the booking link.'] }];
+const LD_ICONS = {
+  library: '<path d="M6 8v28M12 8v28M18 12v24"/><path d="M24.5 13.5l6.5-1.8 6.6 23.8-6.5 1.8z"/><path d="M4 36h36"/>',
+  flag: '<path d="M10 40V6"/><path d="M10 8h20l-4 6 4 6H10"/><circle cx="32" cy="34" r="2.5"/><path d="M13 34h8M25 34h4"/>',
+  book: '<path d="M22 12c-4-3-10-3-16-2v24c6-1 12-1 16 2 4-3 10-3 16-2V10c-6-1-12-1-16 2z"/><path d="M22 12v24"/><path d="M28 10v9l2.5-2 2.5 2v-9.6"/>',
+  mic: '<rect x="16" y="5" width="12" height="20" rx="6"/><path d="M10 20a12 12 0 0 0 24 0"/><path d="M22 32v6M16 38h12"/>' };
 function ldLinksHtml(){
   return `<div class="xstack ldch"><p class="muted small" style="margin:0">We no longer use Google Classroom. These are the L&amp;D platforms your center uses, and what each one is for.</p>
-    ${LD_CHANNELS.map((c, i) => `<article class="xcard ldchc"><div class="ldch-h"><span class="ldch-n">${i + 1}</span><div><h3>${esc(c.name)}</h3><div class="mut small">${esc(c.tag)} · for ${esc(c.who)}</div></div>${c.note ? `<span class="xpill warn">${esc(c.note)}</span>` : ''}</div>
-      <p class="ldch-lead">${esc(c.lead)}</p><ul class="ldch-ul">${c.points.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
-      <div class="xrow" style="gap:8px;flex-wrap:wrap"><a class="xbtn sm primary" href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.btn)} ↗</a>${c.url2 ? `<a class="xbtn sm" href="${esc(c.url2)}" target="_blank" rel="noopener">${esc(c.btn2)} ↗</a>` : ''}</div></article>`).join('')}</div>`;
+    ${LD_CHANNELS.map((c, i) => `<article class="xcard ldchc${c.note ? ' maint' : ''}"><div class="ldch-txt">
+        <span class="ldch-eye">${i + 1} · ${esc(c.tag)}</span><div class="ldch-h"><h3>${esc(c.name)}</h3>${c.note ? `<span class="xpill warn">${esc(c.note)}</span>` : ''}</div><div class="mut small">For ${esc(c.who)}</div>
+        <p class="ldch-lead">${esc(c.lead)}</p><ul class="ldch-ul">${c.points.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>
+      <div class="ldch-side"><div class="ldch-ic" aria-hidden="true"><svg viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${LD_ICONS[c.icon] || ''}</svg></div>
+        <a class="xbtn sm primary" href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.btn)} ↗</a>${c.url2 ? `<a class="xbtn sm" href="${esc(c.url2)}" target="_blank" rel="noopener">${esc(c.btn2)} ↗</a>` : ''}</div></article>`).join('')}</div>`;
 }
 /* ---------- news flash ---------- */
 /* News flash body: plain text in the sheet → readable layout. "1 · Title" paragraphs become numbered steps, "•" lines become bullets,
@@ -5720,26 +5727,48 @@ function vFollowups(){
   if (me.ld){
     const teach = done.flatMap(f => f.teachers), ap = teach.filter(t => lvlIdx(t.applied) >= 3).length, hab = teach.filter(t => lvlIdx(t.applied) >= 4).length;
     const avg = k => done.length ? (done.reduce((a, f) => a + (f[k] || 0), 0) / done.length).toFixed(1) : '—', late = due.filter(x => x.due < d.today).length;
-    kpis = `<div class="kpis fukpi">${[[done.length, 'Follow-ups received'], [late, 'Overdue follow-ups'], [teach.length ? Math.round(ap / teach.length * 100) + '%' : '—', 'Using it day-to-day or as a habit'], [hab, 'Habit formed'], [avg('helpful') + '/4', 'Helpful (teachers)'], [avg('applicable') + '/4', 'Applicable in class'], [done.filter(f => f.further === 'Yes').length, 'Need more support']].map(([v, l]) => `<div class="kpi"><span class="v">${v}</span><span class="l">${l}</span></div>`).join('')}</div>`;
+    kpis = `<div class="fustats">${[[done.length, 'Follow-ups received'], [late, 'Overdue follow-ups'], [teach.length ? Math.round(ap / teach.length * 100) + '%' : '—', 'Using it day-to-day or as a habit'], [hab, 'Habit formed'], [avg('helpful') + '/4', 'Helpful (teachers)'], [avg('applicable') + '/4', 'Applicable in class'], [done.filter(f => f.further === 'Yes').length, 'Need more support']].map(([v, l]) => `<div><b>${v}</b><span>${l}</span></div>`).join('')}</div>`;
   }
-  return `<div class="xstack">${ldCycleHtml(4)}
+  return `<div class="xstack fupage">${ldCycleHtml(4)}
     <p class="muted small" style="margin:0">${me.ld ? 'Did the training change practice? Each Teacher Leader follows up ' + d.cfg.followDays + ' days after a training: observes the teachers in class, asks how helpful and applicable it was, and sends what changed.' : 'About ' + d.cfg.followDays + ' days after a training: follow up with the teachers who joined, watch whether they apply it in class, ask them how helpful and applicable it was, and send a short update to L&amp;D.'}</p>
     ${kpis}
-    <section class="xstack"><h3>${me.ld ? 'Waiting for a follow-up' : 'Follow-ups to do'} (${due.length})</h3>${due.length ? due.map(card).join('') : '<p class="muted small">Nothing to follow up right now.</p>'}</section>
+    <section class="xstack"><h3>${me.ld ? 'Waiting for a follow-up' : 'Follow-ups to do'} (${due.length})</h3>${due.length ? fuGroups(due).map(g => g.items.length === 1 ? card(g.items[0]) : fuGroupHtml(g, card)).join('') : '<p class="muted small">Nothing to follow up right now.</p>'}</section>
     ${me.ld && (d.followClosed || []).length ? `<section class="xstack"><h3>Closed (${d.followClosed.length})</h3>${d.followClosed.map(f => `<article class="xcard"><div class="xrow xbetween"><div><span class="muted small">${f.kind === 'ho' ? 'HO training' : 'Center training'} · ${esc(f.center)} · ${esc(fmtD(f.date))} · closed ${esc(fmtD(f.at))} by ${esc(f.by)}</span><h3 style="margin:2px 0">${esc(f.training)}</h3><div class="small">${esc(f.reason)}</div></div>
       <button class="xbtn sm ghost" data-act="fu_reopen" data-id="${esc(f.id)}">Put it back</button></div></article>`).join('')}</section>` : ''}
-    <section class="xstack"><h3>Sent (${done.length})</h3>${done.length ? done.map(doneCard).join('') : '<p class="muted small">No follow-ups yet.</p>'}</section></div>`;
+    <section class="xstack"><h3>Sent (${done.length})</h3>${done.length ? fuGroups(done).map(g => g.items.length === 1 ? doneCard(g.items[0]) : fuDoneGroupHtml(g, doneCard)).join('') : '<p class="muted small">No follow-ups yet.</p>'}</section></div>`;
 }
+/** Follow-ups of the same training (same HO training or center training), together. */
+function fuGroups(list){ const by = {}, order = []; list.forEach(x => { const k = x.kind + '|' + x.ref; if (!by[k]) { by[k] = { key: k, items: [] }; order.push(k); } by[k].items.push(x); }); return order.map(k => by[k]); }
+function fuGroupHtml(g, card){
+  const d = LD.d, me = d.me, x0 = g.items[0], F = LD.fu, gk = 'G|' + g.key, open = F && F.key === gk, closing = LD.fuClose === gk;
+  const late = g.items.filter(x => x.due && x.due < d.today).length, firstDue = g.items.map(x => x.due).sort()[0], cs = g.items.map(x => x.center);
+  return `<article class="xcard xstack fugroup"><div class="xrow xbetween"><div><span class="muted small">${x0.kind === 'ho' ? 'HO training' : 'Center training'} · ${esc(fmtD(x0.date))} · ${g.items.length} centers</span><h3 style="margin:2px 0">${esc(x0.training)}</h3></div>
+      <span class="nhpill ${late ? 'bad' : firstDue <= d.today ? 'warn' : 'mute'}">${late ? late + ' overdue' : (firstDue <= d.today ? 'Due ' : 'Due from ') + esc(fmtD(firstDue))}</span></div>
+    ${x0.level ? `<div class="small"><span class="muted">Target:</span> <b>${esc(x0.level)}</b>${x0.lookfor ? ` <span class="muted">· looks like:</span> ${esc(x0.lookfor)}` : ''}</div>` : ''}
+    ${open ? fuFormHtml(Object.assign({}, x0, { centers: cs })) : closing ? `<div class="xstack fuform"><div class="xfield"><label for="fu-why">Why are these ${g.items.length} follow-ups not needed?</label>
+        <input class="xinput" id="fu-why" data-fuwhy value="${esc(LD.fuWhy || '')}" placeholder="e.g. the training was cancelled"></div>
+        <div class="xrow"><button class="xbtn primary" data-act="fu_closeallok" data-g="${esc(g.key)}" ${LD.busy ? 'disabled' : ''}>Close all ${g.items.length}</button><button class="xbtn ghost" data-act="fu_closeno">Keep them</button></div></div>`
+      : `<div class="xrow" style="gap:8px;flex-wrap:wrap"><button class="xbtn sm primary" data-act="fu_opengroup" data-g="${esc(g.key)}">Write one follow-up for all ${g.items.length} centers</button>${me.ld ? `<button class="xbtn sm ghost" data-act="fu_closeall" data-g="${esc(g.key)}">Not needed — close all</button>` : ''}</div>`}
+    <details class="fucent"${F && !open && g.items.some(x => F.key === fuKey(x)) ? ' open' : ''}><summary class="small">Or one center at a time (${g.items.length})</summary><div class="xstack" style="margin-top:8px">${g.items.map(card).join('')}</div></details></article>`; }
+function fuDoneGroupHtml(g, doneCard){
+  const fs = g.items, f0 = fs[0], teach = fs.flatMap(f => f.teachers), ap = teach.filter(t => lvlIdx(t.applied) >= 3).length, avg = k => (fs.reduce((a, f) => a + (+f[k] || 0), 0) / fs.length).toFixed(1), more = fs.filter(f => f.further === 'Yes').length;
+  return `<details class="xcard fugroup done"><summary><div><span class="muted small">${f0.kind === 'ho' ? 'HO training' : 'Center training'} · trained ${esc(fmtD(f0.date))} · ${fs.length} centers: ${esc(fs.map(f => shortC(f.center)).join(', '))}</span><h3 style="margin:2px 0">${esc(f0.training)}</h3>
+      <div class="small fusum"><span><b>${teach.length ? Math.round(ap / teach.length * 100) : 0}%</b> using it day-to-day or as a habit (${ap} of ${teach.length})</span><span>Helpful <b>${avg('helpful')}/4</b></span><span>Applicable <b>${avg('applicable')}/4</b></span><span class="${more ? 'actwarn' : ''}">${more ? more + ' need more support' : 'no more support needed'}</span></div></div><span class="tsec-c" aria-hidden="true"></span></summary>
+    <div class="xstack" style="margin-top:10px">${fs.map(doneCard).join('')}</div></details>`; }
+const FU_SHORT = { 'Not yet': 'Not yet', 'Understands': 'Understands', 'Tries with support': 'With support', 'Applies day-to-day': 'Day-to-day', 'Habit': 'Habit' };
 function fuFormHtml(x){
   const F = LD.fu, pool = LD.d.me.ld ? S.teachers : myScope();     // L&D can write one up for any center
-  const team = pool.filter(t => String(t.center).toUpperCase() === String(x.center).toUpperCase() && !F.teachers.some(y => y.name === t.name));
-  const pills = (k, list, cur, extra) => `<div class="pipopts">${list.map(v => `<button data-act="fu_set" data-k="${k}" data-v="${esc(v)}"${extra || ''} aria-pressed="${String(cur) === String(v)}">${esc(v)}</button>`).join('')}</div>`;
+  const cs = (x.centers || [x.center]).map(c => String(c).toUpperCase()), multi = cs.length > 1;
+  const team = pool.filter(t => cs.includes(String(t.center).toUpperCase()) && !F.teachers.some(y => y.name === t.name));
+  const pills = (k, list, cur, extra) => `<div class="fuseg">${list.map(v => `<button data-act="fu_set" data-k="${k}" data-v="${esc(v)}"${extra || ''} aria-pressed="${String(cur) === String(v)}">${esc(v)}</button>`).join('')}</div>`;
   return `<div class="xstack fuform">
-    <div class="xfield"><span class="lbl small">For each person: how far have they taken it into their day-to-day work? Not the score — what you see them do.</span>
-      <div class="ladkey small muted">${PRACTICE.map(([n, d]) => `<span><b>${esc(n)}</b> — ${esc(d)}</span>`).join('')}</div>
+    <div class="xfield"><span class="lbl small">How far has each person taken it into their daily work? <span class="muted" style="font-weight:400">What you see them do, not the score.</span></span>
+      <details class="fulegend"><summary class="small">What the levels mean</summary><div class="ladkey small muted">${PRACTICE.map(([n, d]) => `<span><b>${esc(n)}</b> — ${esc(d)}</span>`).join('')}</div></details>
       ${x.level ? `<div class="small"><span class="muted">L&amp;D expects</span> <b>${esc(x.level)}</b>${x.lookfor ? ` · <span class="muted">looks like:</span> ${esc(x.lookfor)}` : ''}</div>` : ''}
-      ${F.teachers.map((t, i) => `<div class="furow"><b>${esc(t.name)}</b><div class="pipopts">${PRACTICE.map(([v]) => `<button data-act="fu_app" data-i="${i}" data-v="${esc(v)}" aria-pressed="${t.applied === v}">${esc(v)}</button>`).join('')}</div><input class="xinput" data-fun="${i}" value="${esc(t.note)}" placeholder="What you saw them do (lesson, 1-on-1, daily work)"><button class="xbtn sm ghost" data-act="fu_rm" data-i="${i}">Remove</button></div>`).join('') || '<p class="muted small">Add the teachers who joined.</p>'}
-      ${team.length ? `<select class="xinput" data-fuadd style="max-width:320px"><option value="">+ Add a teacher</option>${team.map(t => `<option>${esc(t.name)}</option>`).join('')}</select>` : ''}
+      ${F.teachers.length > 1 ? `<div class="fuall"><div class="furow-h"><span class="small"><b>Mark all ${F.teachers.length}</b></span><div class="fuseg">${PRACTICE.map(([v, dsc]) => `<button data-act="fu_all" data-v="${esc(v)}" title="${esc(v + ' — ' + dsc)}" aria-pressed="${F.teachers.every(t => t.applied === v)}">${esc(FU_SHORT[v] || v)}</button>`).join('')}</div></div>
+        <input class="xinput sm" data-fuallnote value="${esc(F.allNote || '')}" placeholder="Same note for everyone (optional, fills the empty notes)"></div>` : ''}
+      ${F.teachers.map((t, i) => `<div class="furow"><div class="furow-h"><b class="furow-n">${esc(t.name)}${multi && t.center ? ` <span class="muted small" style="font-weight:400">· ${esc(shortC(t.center))}</span>` : ''}</b><div class="fuseg">${PRACTICE.map(([v, dsc]) => `<button data-act="fu_app" data-i="${i}" data-v="${esc(v)}" title="${esc(v + ' — ' + dsc)}" aria-pressed="${t.applied === v}">${esc(FU_SHORT[v] || v)}</button>`).join('')}</div><button class="linkbtn small" data-act="fu_rm" data-i="${i}">Remove</button></div><input class="xinput sm" data-fun="${i}" value="${esc(t.note)}" placeholder="What you saw them do (lesson, 1-on-1, daily work)"></div>`).join('')}
+      ${team.length ? `<select class="xinput" data-fuadd style="max-width:320px"><option value="">+ Add a teacher</option>${team.map(t => `<option value="${esc(t.name)}">${esc(t.name)}${multi ? ' · ' + esc(shortC(t.center)) : ''}</option>`).join('')}</select>` : ''}
       ${LD.d.me.ld ? `<div class="xrow"><input class="xinput" data-funew value="${esc(LD.fuNew || '')}" placeholder="Or type a teacher’s name" style="max-width:260px"><button class="xbtn sm" data-act="fu_addname">Add</button></div>` : ''}</div>
     <div class="xrow"><div class="xfield"><span class="lbl small">How helpful was it? (teachers’ view)</span>${pills('helpful', [1, 2, 3, 4], F.helpful)}</div><div class="xfield"><span class="lbl small">How applicable in their classes?</span>${pills('applicable', [1, 2, 3, 4], F.applicable)}</div></div>
     <div class="xfield"><label>What the teachers said <span class="muted">(optional)</span></label><input class="xinput" data-fuf="feedback" value="${esc(F.feedback)}"></div>
@@ -5747,7 +5776,7 @@ function fuFormHtml(x){
     ${x.measure ? `<div class="xfield"><label>Measure now <span class="muted">(target: ${esc(x.measure)})</span></label><input class="xinput" data-fuf="measureNow" value="${esc(F.measureNow)}" placeholder="e.g. B11 average now 2.8"></div>` : ''}
     <div class="xfield"><span class="lbl small">Is more support still needed?</span>${pills('further', ['No', 'Yes'], F.further)}</div>
     ${F.further === 'Yes' ? `<div class="xfield"><label>What support, for whom?</label><input class="xinput" data-fuf="support" value="${esc(F.support)}"></div>` : ''}
-    <div class="xrow"><button class="xbtn primary" data-act="fu_send" ${LD.busy ? 'disabled' : ''}>${F.replaceId ? 'Save the changes' : 'Send the follow-up to L&amp;D'}</button><button class="xbtn ghost" data-act="fu_close">Cancel</button></div></div>`;
+    <div class="xrow"><button class="xbtn primary" data-act="fu_send" ${LD.busy ? 'disabled' : ''}>${F.replaceId ? 'Save the changes' : multi ? `Send for all ${cs.length} centers` : 'Send the follow-up to L&amp;D'}</button><button class="xbtn ghost" data-act="fu_close">Cancel</button></div></div>`;
 }
 Object.assign(LD_ACTS, {
   fu_open: a => { const x = (LD.d.followups || []).find(y => fuKey(y) === a.dataset.k); LD.fu = { key:fuKey(x), kind:x.kind, ref:x.ref, center:x.center, training:x.training, date:x.date, teachers:x.teachers.map(n => ({ name:n, applied:'', note:'' })), helpful:'', applicable:'', feedback:'', changed:'', measureNow:'', further:'', support:'' }; rerender(false); },
@@ -5799,6 +5828,14 @@ Object.assign(LD_ACTS, {
     if (!window.confirm('Copy last week\u2019s answers into this week? What you have typed is replaced.')) return;
     WK.data = JSON.parse(JSON.stringify(l.data)); WK.dirty = true; rerender(false); toast('Copied \u2014 now change what is different'); },
   fu_close: () => { LD.fu = null; rerender(false); },
+  fu_opengroup: a => { const g = fuGroups(LD.d.followups || []).find(x => x.key === a.dataset.g); if (!g) return; const x0 = g.items[0];
+    LD.fuClose = null; LD.fu = { key:'G|' + g.key, kind:x0.kind, ref:x0.ref, training:x0.training, date:x0.date, centers:g.items.map(x => x.center), center:g.items[0].center,
+      teachers:g.items.flatMap(x => x.teachers.map(n => ({ name:n, center:x.center, applied:'', note:'' }))), helpful:'', applicable:'', feedback:'', changed:'', measureNow:'', further:'', support:'', allNote:'' }; rerender(false); },
+  fu_all: a => { LD.fu.teachers.forEach(t => { t.applied = a.dataset.v; }); rerender(false); },
+  fu_closeall: a => { LD.fuClose = 'G|' + a.dataset.g; LD.fuWhy = ''; LD.fu = null; rerender(false); },
+  fu_closeallok: a => { const g = fuGroups(LD.d.followups || []).find(x => x.key === a.dataset.g); if (!g) return;
+    ldCall('followUpAdmin', JSON.stringify({ act:'close', reason:LD.fuWhy || '', items:g.items.map(x => ({ kind:x.kind, ref:x.ref, center:x.center, training:x.training, date:x.date })) }))
+      .then(() => { LD.fuClose = null; LD.fuWhy = ''; rerender(false); toast(g.items.length + ' closed — off the waiting list'); }).catch(() => {}); },
   fu_closeask: a => { LD.fuClose = a.dataset.k; LD.fuWhy = ''; LD.fu = null; rerender(false); },
   fu_closeno: () => { LD.fuClose = null; LD.fuWhy = ''; rerender(false); },
   fu_closeok: a => { const x = (LD.d.followups || []).find(y => fuKey(y) === a.dataset.k); if (!x) return;
@@ -5819,7 +5856,8 @@ Object.assign(LD_ACTS, {
   fu_addname: () => { const n = String(LD.fuNew || '').trim(); if (!n) return;
     if (!LD.fu.teachers.some(t => t.name.toLowerCase() === n.toLowerCase())) LD.fu.teachers.push({ name:n, applied:'', note:'' });
     LD.fuNew = ''; rerender(false); },
-  fu_send: () => { const ed = !!(LD.fu && LD.fu.replaceId); return ldCall('followUpSubmit', JSON.stringify(LD.fu)).then(() => { LD.fu = null; rerender(false); toast(ed ? 'Saved' : 'Sent — thank you. L&D uses it to judge the impact.'); }).catch(() => {}); }
+  fu_send: () => { const ed = !!(LD.fu && LD.fu.replaceId), an = String(LD.fu.allNote || '').trim(); if (an) LD.fu.teachers.forEach(t => { if (String(t.note || '').trim().length < 10) t.note = an; });
+    return ldCall('followUpSubmit', JSON.stringify(LD.fu)).then(() => { LD.fu = null; rerender(false); toast(ed ? 'Saved' : 'Sent — thank you. L&D uses it to judge the impact.'); }).catch(() => {}); }
 });
 document.addEventListener('change', e => { const c = e.target.dataset && e.target.dataset.hoc; if (c == null || !LD.tform) return; const l = LD.tform.centers = LD.tform.centers || []; const k = l.indexOf(c); if (e.target.checked && k < 0) l.push(c); if (!e.target.checked && k >= 0) l.splice(k, 1); rerender(false); });
 document.addEventListener('input', e => { if (!e.target.matches || !e.target.matches('[data-hocq]') || !LD.tform) return; LD.tform.cq = e.target.value; const pos = e.target.selectionStart; rerender(false); const el = document.querySelector('[data-hocq]'); if (el){ el.focus(); try { el.setSelectionRange(pos, pos); } catch (_) {} } });
@@ -5842,8 +5880,10 @@ document.addEventListener('input', e => { const ds = e.target.dataset;
     const b2 = document.querySelector('.wkbar2 .muted'); if (b2) b2.textContent = 'Not saved yet'; return; }
   if (ds.wk){ const [sid, fid] = ds.wk.split(':'); wkSet(sid, fid, e.target.value); wkTick(sid);
     const b = document.querySelector('.wkbar2 .muted'); if (b) b.textContent = 'Not saved yet'; return; }
-  if (ds.fuwhy != null){ LD.fuWhy = e.target.value; return; } if (ds.funew != null){ LD.fuNew = e.target.value; return; } if (!LD.fu) return; if (ds.fun != null){ LD.fu.teachers[+ds.fun].note = e.target.value; } else if (ds.fuf){ LD.fu[ds.fuf] = e.target.value; } });
-document.addEventListener('change', e => { if (e.target.dataset.fuadd != null && LD.fu && e.target.value){ LD.fu.teachers.push({ name:e.target.value, applied:'', note:'' }); rerender(false); } });
+  if (ds.fuwhy != null){ LD.fuWhy = e.target.value; return; } if (ds.funew != null){ LD.fuNew = e.target.value; return; } if (!LD.fu) return; if (ds.fuallnote != null){ LD.fu.allNote = e.target.value; return; } if (ds.fun != null){ LD.fu.teachers[+ds.fun].note = e.target.value; } else if (ds.fuf){ LD.fu[ds.fuf] = e.target.value; } });
+document.addEventListener('change', e => { if (e.target.dataset.fuadd != null && LD.fu && e.target.value){ const n = e.target.value, cs = (LD.fu.centers || [LD.fu.center]).map(c => String(c).toUpperCase());
+  const hit = (LD.d.me.ld ? S.teachers : myScope()).find(t => t.name === n && cs.includes(String(t.center).toUpperCase()));
+  LD.fu.teachers.push({ name:n, center: hit ? hit.center : LD.fu.center, applied:'', note:'' }); rerender(false); } });
 
 /* ===================== PERFORMANCE IMPROVEMENT PLAN (PIP) ===================== */
 /* 1 Check (is a PIP justified?) → 2 Plan → 3 1-on-1 (both agree) → 4 Send to the teacher → 5 Cover the classes → 6 Check-ins & close.
@@ -6232,7 +6272,7 @@ document.addEventListener('change', e => {
 /* ===================== TEACHER PERFORMANCE (L&D overview, all centers) ===================== */
 /* For the people in Settings → performance_dashboard_emails (and admins): every teacher in every center —
    latest FO and trend, FO coverage (TL compliance), role-play readiness, PIP and renewal — per center and per teacher. */
-const TL_BUILD = 'v14.46 · 28 Nov 2026';
+const TL_BUILD = 'v14.47 · 28 Nov 2026';
 /* L&D can preview the page exactly as a center team sees it (same filtering the server does for a TL / CM). */
 function perfMode(){ return PERF.preview || PERF.scope === 'center' ? 'center' : 'all'; }
 function perfMine(){ return PERF.preview ? [PERF.preview] : (PERF.myCenters || []); }
@@ -7332,12 +7372,32 @@ load();
 .t2 .actq.sel{grid-template-columns:28px minmax(0,1fr) minmax(260px,320px)}.t2 .actsel{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}.t2 .actsel input{width:18px;height:18px;accent-color:var(--green)}
 .t2 .actbulk{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;margin-top:8px;border-radius:12px;background:var(--bg);position:sticky;top:0;z-index:2}
 @media(max-width:700px){.t2 .actq.sel{grid-template-columns:28px minmax(0,1fr)}.t2 .actq.sel .actq-r{grid-column:2}}
+.t2 .fupage h3{font-size:16px}.t2 .fupage .xcard{padding:14px 16px}.t2 .fupage .xstack{gap:10px}
+.t2 .fustats{display:flex;flex-wrap:wrap;gap:6px}.t2 .fustats>div{display:flex;align-items:baseline;gap:6px;padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--card);font-size:12.5px;color:var(--muted)}.t2 .fustats b{font-size:14px;color:var(--ink)}
+.t2 .fuform{gap:12px}.t2 .fuform .lbl{font-size:13px}.t2 .fuform label{font-size:13px}.t2 .fuform textarea.xinput{min-height:56px}
+.t2 .fulegend>summary{cursor:pointer;color:var(--green-ink);margin:2px 0 4px}.t2 .fulegend .ladkey{margin:6px 0}
+.t2 .fuseg{align-self:flex-start;width:fit-content;max-width:100%;display:inline-flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card)}
+.t2 .fuseg button{border:0;border-right:1px solid var(--line);background:transparent;font:inherit;font-size:12.5px;padding:6px 11px;cursor:pointer;color:var(--ink);min-height:32px}
+.t2 .fuseg button:last-child{border-right:0}.t2 .fuseg button:hover{background:var(--bg)}.t2 .fuseg button[aria-pressed="true"]{background:var(--green);color:var(--on-green);font-weight:600}
+.t2 .fupage .furow{display:flex;flex-direction:column;gap:6px;padding:10px 0;border-top:1px solid var(--line)}
+.t2 .furow-h{display:flex;align-items:center;justify-content:flex-start;gap:10px;flex-wrap:wrap;width:100%}.t2 .furow-n{min-width:170px;font-size:14px;text-align:left;margin:0}.t2 .furow-h .linkbtn{margin-left:auto;color:var(--muted);font-size:12.5px;font-weight:400;text-decoration:none}.t2 .furow-h .linkbtn:hover{text-decoration:underline}
+.t2 .fupage .furow>.xinput{max-width:100%}.t2 .xinput.sm{padding:7px 10px;font-size:13.5px}
+.t2 .fuall{gap:8px;padding:10px 12px}
+.fugroup>.fucent>summary{cursor:pointer;color:var(--muted)}.fuall{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:12px;background:var(--bg);margin:6px 0}
+.fugroup.done>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;gap:12px}.fugroup.done>summary::-webkit-details-marker{display:none}.fusum{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:4px}
 .homonth>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px}.homonth>summary::-webkit-details-marker{display:none}.homonth-t{font-weight:600;font-size:16px}
 .homonth>summary .tsec-c{margin-left:auto}.homonth[open]>summary{margin-bottom:10px}.homonth-b>.hocard{box-shadow:none;border:1px solid var(--line)}
 .ncoming .ncup{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}.ncoming .ncup:first-of-type{border-top:0}
 .hodate.sm{min-width:0;padding:6px 4px}.hodate.sm b{font-size:18px}
-.ldchc .ldch-h{display:flex;align-items:flex-start;gap:12px}.ldchc .ldch-h h3{margin:0}.ldchc .ldch-h .xpill{margin-left:auto}
-.ldch-n{width:28px;height:28px;border-radius:999px;background:var(--green-soft);color:var(--green-ink);display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex:0 0 auto}
+.ldchc{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:28px;align-items:center}
+.ldch-eye{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.ldchc .ldch-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:2px}.ldchc .ldch-h h3{margin:0;font-size:18px}
+.ldch-side{display:flex;flex-direction:column;align-items:stretch;gap:8px;padding-left:24px;border-left:1px solid var(--line)}
+.ldch-side .xbtn{justify-content:center;text-align:center;white-space:normal;line-height:1.3}
+.ldch-ic{width:72px;height:72px;border-radius:18px;background:var(--green-soft);color:var(--green-ink);display:flex;align-items:center;justify-content:center;align-self:center;margin-bottom:4px}
+.ldch-ic svg{width:38px;height:38px}.ldchc.maint .ldch-ic{background:var(--yellow-soft);color:var(--yellow-ink)}
+.ldch-ul{margin-bottom:0!important}
+@media(max-width:700px){.ldchc{grid-template-columns:1fr;gap:12px}.ldch-side{padding-left:0;border-left:0;border-top:1px solid var(--line);padding-top:12px;flex-direction:row;flex-wrap:wrap;align-items:center}.ldch-ic{width:44px;height:44px;border-radius:12px;margin:0}.ldch-ic svg{width:24px;height:24px}}
 .ldch-lead{margin:10px 0 4px}.ldch-ul{margin:0 0 12px;padding-left:20px;line-height:1.6;font-size:14px}
 .t2 .actfb{display:flex;flex-direction:column;gap:2px;padding:10px 0;border-top:1px solid var(--line);font-size:14px}.t2 .actfb:first-of-type{border-top:0}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .t2 .actmeet{background:#1a2638}:root:not([data-theme="light"]) .t2 .actmeet>b,:root:not([data-theme="light"]) .t2 .actblue{color:#a9c4f0}:root:not([data-theme="light"]) .t2 .actck-c.set,:root:not([data-theme="light"]) .t2 .actsteps li.set .actsteps-n{background:#1a2638;color:#a9c4f0}:root:not([data-theme="light"]) .t2 .actmeet.none,:root:not([data-theme="light"]) .t2 .actmeet.edit{background:var(--bg)}}
@@ -7438,7 +7498,8 @@ load();
 .t2 .obj{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--card)}.t2 .obj.on{border-color:var(--green)}
 .t2 .obj .l,.t2 .assess .l{display:block;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}.t2 .obj p{margin:4px 0 0}
 .t2 .assess{background:var(--surface-2);border-radius:8px;padding:8px 12px}
-.t2 .furow{display:grid;grid-template-columns:minmax(140px,1fr) auto minmax(200px,2fr) auto;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line)}
+.t2 .furow{display:grid;grid-template-columns:minmax(150px,200px) minmax(0,1fr) auto;gap:6px 12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.t2 .furow>.pipopts{flex-wrap:wrap;gap:4px}.t2 .furow>.pipopts button{padding:5px 10px;font-size:12.5px;min-height:0}.t2 .furow>input{grid-column:2 / 3}.t2 .furow>button.ghost,.t2 .furow>.xbtn{grid-column:3;grid-row:1}
 .t2 .futeach{display:flex;flex-direction:column;gap:6px}
 .t2 .fukpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}.t2 .fukpi .kpi{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--card);display:flex;flex-direction:column}.t2 .fukpi .v{font-size:20px;font-weight:600}.t2 .fukpi .l{font-size:12px;color:var(--muted)}
 @media (max-width:760px){.t2 .furow{grid-template-columns:1fr}}
