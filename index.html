@@ -1780,6 +1780,24 @@ textarea.si-in{min-height:84px;resize:vertical}
   function openApp(token) {
     show('loading');
     var store = window.tlmStore, saved = null;
+    // Speed: when this device has the last start-up answer for this person, open the app from it at once
+    // and ask the server in the background (only to keep the copy fresh and to check the sign-in is still valid).
+    if (navigator.onLine !== false && !openApp.bg) {
+      return Promise.all([store.get('boot'), store.get('content')]).then(function (r) {
+        var b = r[0], c = r[1];
+        if (!(b && b.token === token && c && c.data && Date.now() - (b.at || 0) < 7 * 864e5)) { openApp.bg = 'no'; return openApp(token); }
+        window.__P = { token: token, data: c.data, state: b.state, user: b.user, links: b.links, help: b.help, ver: c.ver, fromCopy: b.at };
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { startApp(token); }, { once: true }); else startApp(token);
+        run('loadApp', token, c.ver || '').then(function (txt) {
+          var p = JSON.parse(txt);
+          if (p.data != null) store.set('content', { ver: p.ver, data: p.data });
+          store.set('boot', { token: token, at: Date.now(), state: p.state, user: p.user, links: p.links, help: p.help, ver: p.ver });
+          if (window.__P) window.__P.fromCopy = 0;   // a changed course shows the next time the app opens
+        }).catch(function (x) { var m = msgOf(x);
+          if (/SIGNED_OUT/.test(m)) { tokDel(); location.reload(); return; }
+          if (/NetworkError|Failed to fetch|Service unavailable|timed? ?out|DEADLINE_EXCEEDED|busy right now/i.test(m) || navigator.onLine === false) offlineBanner(b.at); });
+      }, function () { openApp.bg = 'no'; return openApp(token); });
+    }
     store.get('content').then(function (c) { saved = c || null; return run('loadApp', token, saved && saved.ver ? saved.ver : ''); }).then(function (txt) {
       var p = JSON.parse(txt); p.token = token;
       if (p.data == null && saved && saved.ver === p.ver) p.data = saved.data;            // course unchanged: use the copy on this device
@@ -1807,18 +1825,21 @@ textarea.si-in{min-height:84px;resize:vertical}
       if (!/SIGNED_OUT/.test(m)) err(m); else err('Please sign in again.');
     });
   }
+  function offlineBanner(at) {
+    if (document.querySelector('.tl-offline')) return;
+    window.__P.offline = at;
+        var bn = document.createElement('div'); bn.className = 'tl-offline'; bn.setAttribute('role', 'status');
+        bn.innerHTML = '<b>Offline.</b> You see the copy saved on ' + new Date(at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + '. Your progress is kept on this device and sent when you are back online. <button type="button" class="si-link" data-reload>Reconnect</button>';
+        bn.querySelector('[data-reload]').addEventListener('click', function () { location.reload(); });
+        document.getElementById('app').prepend(bn);
+        window.addEventListener('online', function () { location.reload(); }, { once: true });
+        }
   function startApp(token) {
     {
       document.getElementById('signin').hidden = true;
       document.getElementById('app').hidden = false;
       var s = document.createElement('script'); s.textContent = document.getElementById('appcode').textContent; document.body.appendChild(s);
-      if (window.__P.offline) {
-        var bn = document.createElement('div'); bn.className = 'tl-offline'; bn.setAttribute('role', 'status');
-        bn.innerHTML = '<b>Offline.</b> You see the copy saved on ' + new Date(window.__P.offline).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + '. Your progress is kept on this device and sent when you are back online. <button type="button" class="si-link" data-reload>Reconnect</button>';
-        bn.querySelector('[data-reload]').addEventListener('click', function () { location.reload(); });
-        document.getElementById('app').prepend(bn);
-        window.addEventListener('online', function () { location.reload(); }, { once: true });
-      }
+      if (window.__P.offline) offlineBanner(window.__P.offline);
       run('getSlides', token).then(function (t) {
         var arr = JSON.parse(t); arr.forEach(function (x) { window.SCHED_SLIDES.push(x); });
         document.querySelectorAll('[data-slideimg]').forEach(function (i) { if (!i.getAttribute('src') && arr.length) i.src = arr[0].src; });
@@ -3096,8 +3117,14 @@ function api1(fn, args){ const t0 = performance.now(), tt = window.tlTime || (()
 /* Read-only screens (get…) keep their last answer on this device. No connection, or Google busy:
    the screen opens from that copy with a note, instead of an error. Writes are never answered from a copy. */
 let _offNote = 0;
+/* Speed: these screens open at once from the copy saved on this device, then ask the server in the background.
+   When the server's answer is different, the screen loads again with it (SKIP stops a second background call).
+   After anything is saved (a write call), the next screen load goes to the server first, so you never see your change disappear. */
+const SWR = { getToolsData: () => load(), getStarChecklist: () => loadNH(), getLdData: () => loadLd(), getWeeklyData: () => loadWk(true), getPipData: () => loadPip(),
+  getPerformanceData: () => loadPerf(), getTierData: () => loadTiers(), getActingData: () => loadActing() };
+const SWR_SKIP = {}; let SWR_DIRTY = 0;
 function api(fn, ...args){
-  if (!/^get/.test(fn)) return api1(fn, args);
+  if (!/^get/.test(fn)) { SWR_DIRTY = Date.now(); return api1(fn, args).then(v => { SWR_DIRTY = Date.now(); return v; }); }
   const key = 'c:' + fn + '|' + JSON.stringify(args.slice(0, 3)).slice(0, 300), st = window.tlmStore;
   const fromCopy = e => (st ? st.get(key) : Promise.resolve()).then(c => {
     if (!c || c.token !== TOKEN) return Promise.reject(e);
@@ -3107,8 +3134,16 @@ function api(fn, ...args){
   if (window.__P && window.__P.offline) return api1(fn, args).catch(fromCopy);
   const wait = [1500, 4000];
   const go = n => api1(fn, args).catch(e => (n < wait.length && isTransient(e)) ? new Promise(r => setTimeout(r, wait[n])).then(() => go(n + 1)) : Promise.reject(e));
-  return go(0).then(v => { if (st && typeof v === 'string' && v.length < 4e6) st.set(key, { token: TOKEN, at: Date.now(), v }); return v; },
+  const net = () => go(0).then(v => { if (st && typeof v === 'string' && v.length < 4e6) st.set(key, { token: TOKEN, at: Date.now(), v }); return v; },
     e => isTransient(e) ? fromCopy(e) : Promise.reject(e));
+  if (!SWR[fn] || args.length || !st) return net();
+  if (SWR_SKIP[key]) { delete SWR_SKIP[key]; return st.get(key).then(c => c && c.token === TOKEN ? c.v : net()); }
+  const asked = Date.now();
+  return st.get(key).then(c => {
+    if (!c || c.token !== TOKEN || c.at < SWR_DIRTY || Date.now() - c.at > 3 * 864e5) return net();
+    net().then(v => { if (v !== c.v && SWR_DIRTY < asked) { SWR_SKIP[key] = 1; SWR[fn](); } }).catch(() => {});
+    return c.v;
+  }, () => net());
 }
 function loadErrHtml(err, act, setupHint){
   const m = String(err || '');
@@ -6153,7 +6188,7 @@ document.addEventListener('change', e => {
 /* ===================== TEACHER PERFORMANCE (L&D overview, all centers) ===================== */
 /* For the people in Settings → performance_dashboard_emails (and admins): every teacher in every center —
    latest FO and trend, FO coverage (TL compliance), role-play readiness, PIP and renewal — per center and per teacher. */
-const TL_BUILD = 'v14.44 · 28 Nov 2026';
+const TL_BUILD = 'v14.45 · 28 Nov 2026';
 /* L&D can preview the page exactly as a center team sees it (same filtering the server does for a TL / CM). */
 function perfMode(){ return PERF.preview || PERF.scope === 'center' ? 'center' : 'all'; }
 function perfMine(){ return PERF.preview ? [PERF.preview] : (PERF.myCenters || []); }
@@ -6664,7 +6699,7 @@ document.addEventListener('change', e => { const k = e.target.dataset && e.targe
 /* Candidates (named in the "Acting Period" tab) sign in with their own e-mail only between their dates. Every week they write an
    update per deliverable (the OKR of the acting period) with an evidence link; a finished week is locked. The center account is the
    assessor; L&D sees everyone and records the decision. Compliance (FO / co-teach / mentoring counts) stays in the Teacher Activity Tracker. */
-const ACT = { loaded:false, err:'', d:null, open:'', busy:false, form:{}, q:{}, qDone:{}, chk:null, dec:null, meet:null, queue:false };
+const ACT = { loaded:false, err:'', d:null, open:'', busy:false, form:{}, q:{}, qDone:{}, sel:{}, chk:null, dec:null, meet:null, queue:false, qChain:Promise.resolve() };
 const ACT_TRACKER = TLINK(0);
 const ACT_STAGES = [['Understand', 'the role'], ['Practise', 'with guidance'], ['Own', 'with evidence'], ['Validate', 'final review']];
 const ACT_DOMAINS = {
@@ -6798,14 +6833,16 @@ function actQRow(p, u, ld, showWho){
   const left = `<div class="actq-l">${showWho ? `<span class="mut small">${esc(p.name)} · ${esc(shortC(p.center))} · week of ${esc(actDay(u.week))}</span>` : ''}<b>${esc(it ? it.t : u.item)}${u.status ? ` <span class="mut small" style="font-weight:400">· ${esc(u.status)}</span>` : ''}</b><p>${esc(u.note)}</p>${u.link ? `<a href="${esc(u.link)}" target="_blank" rel="noopener">Open evidence ↗</a>` : '<span class="mut small">No evidence link</span>'}</div>`;
   if (!ld) return `<div class="actq">${left}<div class="actq-r">${q.r ? `<span class="xpill ${q.r === 'Done well' ? 'good' : 'warn'}">${esc(q.r)}</span>${q.c ? `<p class="small">${esc(q.c)}</p>` : ''}` : '<span class="mut small">Quality not checked yet</span>'}</div></div>`;
   const a = `data-n="${esc(p.nrp)}" data-w="${esc(u.week)}" data-k="${esc(u.item)}"`;
-  return `<div class="actq">${left}<div class="actq-r"><div class="pipopts sm actqb">${['Done well', 'Needs improvement'].map(v => `<button data-act="act_q" ${a} data-v="${v}" aria-pressed="${q.r === v}" ${ACT.busy ? 'disabled' : ''}>${v}</button>`).join('')}</div>
-      <div class="xrow" style="gap:6px;flex-wrap:nowrap"><input class="xinput" data-actq="${esc(key)}" value="${esc(draft)}" placeholder="Comment for the candidate (optional)" aria-label="Comment: ${esc(it ? it.t : u.item)}"><button class="xbtn sm" data-act="act_qsave" ${a} ${ACT.busy || !dirty || !q.r ? 'disabled' : ''}>Save</button></div></div></div>`; }
+  const right = `<div class="actq-r"><div class="pipopts sm actqb">${['Done well', 'Needs improvement'].map(v => `<button data-act="act_q" ${a} data-v="${v}" aria-pressed="${q.r === v}">${v}</button>`).join('')}</div>
+      <div class="xrow" style="gap:6px;flex-wrap:nowrap"><input class="xinput" data-actq="${esc(key)}" value="${esc(draft)}" placeholder="Comment for the candidate (optional)" aria-label="Comment: ${esc(it ? it.t : u.item)}"><button class="xbtn sm" data-act="act_qsave" ${a} ${!dirty || !q.r ? 'disabled' : ''}>Save</button></div></div></div>`;
+  return showWho ? `<div class="actq sel"><label class="actsel"><input type="checkbox" data-actsel="${esc(key)}" ${ACT.sel[key] ? 'checked' : ''} aria-label="Select this report"></label>${left}${right}` : `<div class="actq">${left}${right}`; }
 /** Weekly compliance and quality, newest week first. */
 function actWeeksHtml(p, d, ld){
   const r = p.report || {}, N = ACT_PER(), ws = (r.weeks || []).slice().reverse(), total = r.weeksTotal || ws.length;
   const box = (w) => { const i = (r.weeks || []).indexOf(w) + 1, us = actRep(p).filter(u => u.week === w.w);
     const badge = w.n >= N ? ['good', w.n + ' reported · complete'] : w.open ? ['warn', w.n + ' of ' + N + ' so far · open until Sunday'] : ['bad', w.n + ' of ' + N + ' · incomplete'];
-    return `<div class="actwbox"><div class="actwbox-h"><b>Week ${i} · ${esc(actWeekRange(w.w))}</b><span class="xpill ${badge[0]}">${badge[1]}</span></div>
+    const open = ld ? us.filter(u => !(u.q && u.q.r)).length : 0;
+    return `<div class="actwbox"><div class="actwbox-h"><b>Week ${i} · ${esc(actWeekRange(w.w))}</b><div class="xrow" style="gap:8px">${open ? `<button class="xbtn sm ghost" data-act="act_qweek" data-n="${esc(p.nrp)}" data-w="${esc(w.w)}">Mark the ${open} unchecked as Done well</button>` : ''}<span class="xpill ${badge[0]}">${badge[1]}</span></div></div>
       ${us.map(u => actQRow(p, u, ld)).join('') || '<p class="mut small" style="margin:6px 0 0">Nothing reported this week.</p>'}</div>`; };
   return `<section class="xcard actrep"><div class="thd"><h3 style="margin:0">Weekly compliance and quality</h3><span class="mut small">${r.submitted || 0} of ${r.counted || 0} finished week${r.counted === 1 ? '' : 's'} complete · ${r.well || 0} done well · ${r.improve || 0} need${r.improve === 1 ? 's' : ''} improvement${r.toReview ? ' · ' + r.toReview + ' to review' : ''}</span></div>
     ${ws.map(box).join('') || `<p class="mut small">No weeks yet. The acting period starts ${esc(actDay(p.start))}.</p>`}
@@ -6918,10 +6955,13 @@ function actListHtml(d){
 function actQueueHtml(d){
   const list = []; d.people.forEach(p => actRep(p).forEach(u => { if (!(u.q && u.q.r) || ACT.qDone[actQKey(p, u)]) list.push([p, u]); }));
   list.sort((a, b) => b[1].week.localeCompare(a[1].week) || a[0].name.localeCompare(b[0].name));
+  const keys = list.map(([p, u]) => actQKey(p, u)), nSel = keys.filter(k => ACT.sel[k]).length, all = keys.length && nSel === keys.length;
   return `<div class="xstack acting"><div class="noprint"><button class="xbtn sm ghost" data-act="act_back">← All candidates</button></div>
     <section class="xcard"><div class="thd"><h3 style="margin:0">Quality check</h3><span class="mut small">${list.filter(x => !(x[1].q && x[1].q.r)).length} to review · newest first</span></div>
+      ${keys.length ? `<div class="actbulk"><label class="actsel"><input type="checkbox" data-actselall="1" ${all ? 'checked' : ''}> Select all (${keys.length})</label>
+        <span class="mut small">${nSel} selected</span><button class="xbtn sm primary" data-act="act_qmany" data-v="Done well" ${nSel ? '' : 'disabled'}>Mark selected Done well</button><button class="xbtn sm" data-act="act_qmany" data-v="Needs improvement" ${nSel ? '' : 'disabled'}>Mark selected Needs improvement</button></div>` : ''}
       ${list.map(([p, u]) => actQRow(p, u, true, true)).join('') || '<p class="mut">Everything is reviewed.</p>'}
-      <p class="tnote" style="text-align:left">Done well or Needs improvement saves straight away. The comment is optional; the candidate sees the rating and the comment.</p></section></div>`; }
+      <p class="tnote" style="text-align:left">Check the evidence, tick the ones that are fine (or Select all, then untick the ones that need work) and press Mark selected. Each button also saves on its own. The comment is optional; the candidate sees the rating and the comment.</p></section></div>`; }
 /* ---------- L&D / assessor: one candidate ---------- */
 function actDetailHtml(p, d){
   const ld = d.kind === 'ld', st = actStatus(p, d), r = p.report || {}, as = (p.assessors || []).map(x => x.name).join(', ');
@@ -6942,6 +6982,18 @@ function actDetailHtml(p, d){
         <div class="xrow"><button class="xbtn primary" data-act="act_decsave" ${ACT.busy || !dc.decision ? 'disabled' : ''}>Save and tell the candidate</button><button class="xbtn ghost" data-act="act_decclose">Cancel</button></div>`
         : `<div class="xrow">${p.decision ? `<b>${esc(p.decision)}</b>` : `<span class="mut">${fin ? 'Final score ' + Number(fin.total).toFixed(2) + (res.suggested ? ' · by the rule: ' + esc(res.suggested) : '') : 'Waiting for the assessor’s final review'}</span>`}<button class="xbtn sm" data-act="act_decopen">${p.decision ? 'Change' : 'Decide'}</button></div>
         <p class="mut small" style="margin:0">The candidate gets the result and your note by e-mail.</p>`}</section>` : ''}</div></div></div>`;
+}
+function actUpd(n, w, k){ const p = ACT.d && ACT.d.people.find(x => x.nrp === n); return p && p.updates.find(x => x.week === w && x.item === k); }
+function actRecount(p){ const r = p.report || (p.report = {}), rep = actRep(p); r.well = rep.filter(u => u.q && u.q.r === 'Done well').length; r.improve = rep.filter(u => u.q && u.q.r === 'Needs improvement').length; r.rated = r.well + r.improve; r.toReview = rep.length - r.rated; }
+/** Quality ratings show at once on the screen and are saved in the background, in order (several clicks never overtake each other). */
+function actQSave(list, msg){
+  const touched = new Set();
+  list.forEach(x => { const u = actUpd(x.nrp, x.week, x.item); if (!u) return; u.q = x.rating ? { r: x.rating, c: x.comment || '', by: 'you', at: ACT.d.today } : null;
+    const key = x.nrp + '|' + x.week + '|' + x.item; if (ACT.queue) ACT.qDone[key] = 1; delete ACT.q[key]; touched.add(x.nrp); });
+  ACT.d.people.forEach(p => { if (touched.has(p.nrp)) actRecount(p); });
+  rerender();
+  ACT.qChain = ACT.qChain.then(() => api('actingQualityMany', JSON.stringify({ items: list })).then(() => { if (msg) toast(msg); }))
+    .catch(e => { toast('Not saved: ' + ((e && e.message) || e) + ' — reloading.', true); ACT.loaded = false; rerender(); });
 }
 function vActing(){
   if (!ACT.loaded){ if (!ACT.loading){ ACT.loading = true; loadActing().then(() => { ACT.loading = false; }); } return '<p class="muted">Loading…</p>'; }
@@ -6968,13 +7020,16 @@ Object.assign(PERF_ACTS, {
   },
   act_open: a => { ACT.open = a.dataset.v; ACT.queue = false; ACT.chk = null; ACT.dec = null; ACT.meet = null; rerender(false); window.scrollTo(0, 0); },
   act_back: () => { ACT.open = ''; ACT.queue = false; ACT.qDone = {}; ACT.chk = null; ACT.dec = null; ACT.meet = null; rerender(false); },
-  act_queue: () => { ACT.queue = true; ACT.open = ''; ACT.qDone = {}; rerender(false); window.scrollTo(0, 0); },
-  act_q: a => { const { n, w, k, v } = a.dataset, p = ACT.d.people.find(x => x.nrp === n), u = p && p.updates.find(x => x.week === w && x.item === k); if (!u) return;
-    const key = n + '|' + w + '|' + k, rating = u.q && u.q.r === v ? '' : v, comment = ACT.q[key] != null ? ACT.q[key] : ((u.q && u.q.c) || '');
-    if (ACT.queue) ACT.qDone[key] = 1;
-    actCall({ action:'quality', nrp:n, week:w, item:k, rating, comment }, () => { delete ACT.q[key]; }); },
-  act_qsave: a => { const { n, w, k } = a.dataset, p = ACT.d.people.find(x => x.nrp === n), u = p && p.updates.find(x => x.week === w && x.item === k); if (!u || !u.q) return;
-    const key = n + '|' + w + '|' + k; actCall({ action:'quality', nrp:n, week:w, item:k, rating:u.q.r, comment:ACT.q[key] || '' }, () => { delete ACT.q[key]; toast('Comment saved'); }); },
+  act_queue: () => { ACT.queue = true; ACT.open = ''; ACT.qDone = {}; ACT.sel = {}; rerender(false); window.scrollTo(0, 0); },
+  act_q: a => { const { n, w, k, v } = a.dataset, u = actUpd(n, w, k); if (!u) return;
+    const key = n + '|' + w + '|' + k; actQSave([{ nrp:n, week:w, item:k, rating: u.q && u.q.r === v ? '' : v, comment: ACT.q[key] != null ? ACT.q[key] : ((u.q && u.q.c) || '') }]); },
+  act_qsave: a => { const { n, w, k } = a.dataset, u = actUpd(n, w, k); if (!u || !u.q) return;
+    const key = n + '|' + w + '|' + k; actQSave([{ nrp:n, week:w, item:k, rating:u.q.r, comment:ACT.q[key] || '' }], 'Comment saved'); },
+  act_qmany: a => { const v = a.dataset.v, list = Object.keys(ACT.sel).filter(k => ACT.sel[k]).map(k => { const [n, w, it] = k.split('|'), u = actUpd(n, w, it); return u ? { nrp:n, week:w, item:it, rating:v, comment: ACT.q[k] != null ? ACT.q[k] : ((u.q && u.q.c) || '') } : null; }).filter(Boolean);
+    if (!list.length) return; ACT.sel = {}; actQSave(list, list.length + ' marked ' + v); },
+  act_qweek: a => { const { n, w } = a.dataset, p = ACT.d.people.find(x => x.nrp === n); if (!p) return;
+    const list = actRep(p).filter(u => u.week === w && !(u.q && u.q.r)).map(u => ({ nrp:n, week:w, item:u.item, rating:'Done well', comment: ACT.q[actQKey(p, u)] || '' }));
+    if (list.length) actQSave(list, list.length + ' marked Done well'); },
   act_meetopen: () => { const p = actCur(), m = p.meeting || {}; ACT.meet = { nrp:p.nrp, date:m.date || (p.due || {}).mid || '', start:m.start || '10:00', mins:m.mins || 30 }; rerender(); },
   act_meetclose: () => { ACT.meet = null; rerender(); },
   act_meetsave: () => { const f = ACT.meet; actCall({ action:'meet', nrp:f.nrp, date:f.date, start:f.start, mins:+f.mins || 30 }, () => { ACT.meet = null; toast('Meeting saved. Everyone has a calendar invite with the Meet link.'); }); },
@@ -7000,7 +7055,10 @@ document.addEventListener('input', e => { const t = e.target, ds = t.dataset || 
   if (ds.actm && ACT.meet){ ACT.meet[ds.actm] = t.value; const b = document.querySelector('[data-act="act_meetsave"]'); if (b && !ACT.busy) b.disabled = !ACT.meet.date || !ACT.meet.start; return; }
   if (ds.actc && ACT.chk && t.tagName !== 'SELECT'){ ACT.chk[ds.actc] = t.value; return; }
   if (ds.actd && ACT.dec){ ACT.dec[ds.actd] = t.value; if (ds.actd === 'adj') rerender(); } });
-document.addEventListener('change', e => { const t = e.target, ds = t.dataset || {}; if (ds.actm && ACT.meet){ ACT.meet[ds.actm] = t.value; return; } if (!ACT.chk) return;
+document.addEventListener('change', e => { const t = e.target, ds = t.dataset || {}; if (ds.actm && ACT.meet){ ACT.meet[ds.actm] = t.value; return; }
+  if (ds.actsel){ ACT.sel[ds.actsel] = t.checked; rerender(false); return; }
+  if (ds.actselall){ document.querySelectorAll('[data-actsel]').forEach(x => { ACT.sel[x.dataset.actsel] = t.checked; }); rerender(false); return; }
+  if (!ACT.chk) return;
   if (ds.actcs != null){ ACT.chk.scores[+ds.actcs] = +t.value || 0; rerender(); }
   else if (ds.actcb){ ACT.chk[ds.actcb] = t.checked; }
   else if (ds.actc === 'adj'){ ACT.chk.adj = +t.value || 0; rerender(); } });
@@ -7225,6 +7283,9 @@ load();
 .t2 .actprog{display:flex;flex-direction:column;gap:4px;margin-top:6px}.t2 .actprog-t{height:8px;border-radius:999px;background:var(--line);overflow:hidden}.t2 .actprog-t>div{height:100%;background:var(--green)}
 .t2 .actbars{display:flex;gap:8px;align-items:flex-end}.t2 .actbar{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}.t2 .actbar-t{width:100%;height:80px;background:var(--bg);border-radius:8px;display:flex;align-items:flex-end;overflow:hidden}.t2 .actbar-t>div{width:100%;background:var(--green);border-radius:8px 8px 0 0}
 .t2 .actbar.half .actbar-t>div{background:#d9a62e}.t2 .actbar.miss .actbar-t>div{background:#c4533f}.t2 .actbar.now .actbar-t>div{background:var(--line-strong)}.t2 .actbar-v{font-size:11.5px;font-weight:600;color:var(--muted);white-space:nowrap}.t2 .actbar.ok .actbar-v{color:var(--good)}.t2 .actbar.miss .actbar-v{color:var(--bad)}.t2 .actbar.half .actbar-v{color:var(--warn)}.t2 .actbar-w{font-size:12px;color:var(--muted)}
+.t2 .actq.sel{grid-template-columns:28px minmax(0,1fr) minmax(260px,320px)}.t2 .actsel{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}.t2 .actsel input{width:18px;height:18px;accent-color:var(--green)}
+.t2 .actbulk{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;margin-top:8px;border-radius:12px;background:var(--bg);position:sticky;top:0;z-index:2}
+@media(max-width:700px){.t2 .actq.sel{grid-template-columns:28px minmax(0,1fr)}.t2 .actq.sel .actq-r{grid-column:2}}
 .t2 .actfb{display:flex;flex-direction:column;gap:2px;padding:10px 0;border-top:1px solid var(--line);font-size:14px}.t2 .actfb:first-of-type{border-top:0}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .t2 .actmeet{background:#1a2638}:root:not([data-theme="light"]) .t2 .actmeet>b,:root:not([data-theme="light"]) .t2 .actblue{color:#a9c4f0}:root:not([data-theme="light"]) .t2 .actck-c.set,:root:not([data-theme="light"]) .t2 .actsteps li.set .actsteps-n{background:#1a2638;color:#a9c4f0}:root:not([data-theme="light"]) .t2 .actmeet.none,:root:not([data-theme="light"]) .t2 .actmeet.edit{background:var(--bg)}}
 
