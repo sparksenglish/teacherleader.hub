@@ -3125,7 +3125,7 @@ const HEAD = {
   nh:['New hire checklist','From STAR LMS','Where every new teacher in your center stands on the STAR New Hire Checklist: what is done, what waits for the center, what was returned, and the deadline. New teachers submit in STAR and the center approves in STAR — this page shows the status, so you can follow up without opening STAR.'],
   life:['Teacher lifecycle','From CV to sign-off','Every step from the day a CV arrives to the day a teacher leaves. Each lane is who does the step. Press a step to see what happens and open the tool for it.'],
   perf:['L&D overview','Teacher performance','Every teacher in every center: latest Formal Observation and trend, whether their Teacher Leader keeps the FO cycle, role-play readiness, who is on a PIP, and contract renewals. Read only — for L&D.'],
-  acting:['16 Nov – 31 Dec 2026','Acting period','Weekly updates on the acting deliverables, the three checkpoints and the final result.'],
+  acting:['16 Nov – 31 Dec 2026','Acting period','At least 2 deliverables a week, L&D quality check, the three checkpoints and the final result.'],
   tiers:['L&D only','Teacher tiers — P1, P2, P3','From the Talent Density tab, copied every day. P1 High Impact 3.40–4.00 · P2 Proficient 3.01–3.39 · P3 Developing & Critical 3.00 and below — each split into an upper and a lower band with its own intervention.'],
   pip:['Performance management','Performance Improvement Plan (PIP)','Check that a PIP is justified, write the plan with the teacher, send it, cover the classes, and follow it to the end. L&D sees every PIP here.'],
   ldnews:['L&D support','News flash','What is new from the L&D team — what just launched and how to try it.'],
@@ -3160,7 +3160,7 @@ function load(){
     if (draft){ try{ OBS = JSON.parse(draft); if (OBS && OBS.rk === 'MPT' && OBS.variant === 'SLSA'){ OBS.rk = 'SLSA_TRIAL'; } if (OBS) OBS.variant = RUBRICS[OBS.rk] && RUBRICS[OBS.rk].variants ? OBS.variant : null; if (!OBS || !RUBRICS[OBS.rk] || OBS.step === 'done') OBS = null; if (OBS && OBS.notes) OBS.notes.forEach(n => { if (!n.lvlEdited) n.lvl = guessLevel(n.text, n.en); }); if (OBS && (OBS.step !== 'setup' || OBS.notes.length)) resumeAsk = true; }catch(_){ OBS = null; } }
     { const tb = document.getElementById('tab-tiers'); if (tb) tb.hidden = S.user.perf !== 'all'; }
     { const ab = document.getElementById('tab-acting'); if (ab){ ab.hidden = !S.user.acting; const cand = isActingUser(), sp = ab.querySelector('span'); if (sp) sp.textContent = cand ? 'My acting period' : 'Acting period';
-        if (cand){ HEAD.acting = [S.user.role === 'Acting TL' ? 'Acting Teacher Leader' : 'Acting Senior Teacher', 'My acting period', 'Every week: write what you did for each deliverable and link the evidence. Your assessor checks it, and your checkpoints and final result show here.'];
+        if (cand){ HEAD.acting = [S.user.role === 'Acting TL' ? 'Acting Teacher Leader' : 'Acting Senior Teacher', 'My acting period', 'Every week: report at least 2 deliverables, what you did and the evidence link. L&D checks the quality; your checkpoints and final result show here.'];
           ['perf','tiers','observe','audit','nh','pip','life','mail','ldreq','ldlist','ldfu','staff'].forEach(t => { const b = document.getElementById('tab-' + t); if (b){ b.hidden = true; b.dataset.off = '1'; } });
           document.querySelectorAll('.secnav .navgrp').forEach(g => { if (/teacher lifecycle/i.test(g.textContent)) g.hidden = true; });
           let seen = ''; try { seen = sessionStorage.getItem('tl-act-open') || ''; } catch(_){}
@@ -6153,7 +6153,7 @@ document.addEventListener('change', e => {
 /* ===================== TEACHER PERFORMANCE (L&D overview, all centers) ===================== */
 /* For the people in Settings → performance_dashboard_emails (and admins): every teacher in every center —
    latest FO and trend, FO coverage (TL compliance), role-play readiness, PIP and renewal — per center and per teacher. */
-const TL_BUILD = 'v14.43 · 27 Nov 2026';
+const TL_BUILD = 'v14.44 · 28 Nov 2026';
 /* L&D can preview the page exactly as a center team sees it (same filtering the server does for a TL / CM). */
 function perfMode(){ return PERF.preview || PERF.scope === 'center' ? 'center' : 'all'; }
 function perfMine(){ return PERF.preview ? [PERF.preview] : (PERF.myCenters || []); }
@@ -6664,7 +6664,7 @@ document.addEventListener('change', e => { const k = e.target.dataset && e.targe
 /* Candidates (named in the "Acting Period" tab) sign in with their own e-mail only between their dates. Every week they write an
    update per deliverable (the OKR of the acting period) with an evidence link; a finished week is locked. The center account is the
    assessor; L&D sees everyone and records the decision. Compliance (FO / co-teach / mentoring counts) stays in the Teacher Activity Tracker. */
-const ACT = { loaded:false, err:'', d:null, open:'', busy:false, form:{}, rev:{}, chk:null, dec:null };
+const ACT = { loaded:false, err:'', d:null, open:'', busy:false, form:{}, q:{}, qDone:{}, chk:null, dec:null, meet:null, queue:false };
 const ACT_TRACKER = TLINK(0);
 const ACT_STAGES = [['Understand', 'the role'], ['Practise', 'with guidance'], ['Own', 'with evidence'], ['Validate', 'final review']];
 const ACT_DOMAINS = {
@@ -6735,157 +6735,213 @@ function actHeadHtml(p, d){
   return `<section class="xcard"><div class="thd"><div><h3 style="margin:0">${esc(p.name)}</h3><div class="mut small">${esc(actRole(p.role))} · ${esc(shortC(p.center))}${as ? ' · assessor: ' + esc(as) : ''}</div></div>
       ${ph.pill ? `<span class="xpill ${ph.pill}">${esc(ph.t)}</span>` : `<span class="mut small">${esc(ph.t)}</span>`}</div></section>`;
 }
-/* ---------- the report: the same page for the candidate, the assessor and L&D ---------- */
-function actReportHtml(p, d, view){
-  const r = p.report || {}, items = ACT_ITEMS[p.role], fin = p.checks.final, res = r.result || {};
-  const tile = (v, l, sub, bad) => `<div class="actile ${bad ? 'bad' : ''}"><b>${v}</b><span>${l}</span>${sub ? `<small>${sub}</small>` : ''}</div>`;
-  const chips = (r.weeks || []).map(w => `<span class="actwk ${w.ok ? 'ok' : w.open ? 'now' : 'miss'}" title="Week of ${esc(actDay(w.w))}: ${w.ok ? 'submitted' : w.open ? 'open until Sunday' : 'missed'}">${esc(actDay(w.w))}</span>`).join('');
-  const checks = ACT_CHECKS.filter(c => p.checks[c[0]]).length;
-  const weekRows = (r.weeks || []).slice().reverse().map(w => { const us = p.updates.filter(u => u.week === w.w && (u.status || u.note));
-    return `<details class="acthist"><summary>Week of ${esc(actDay(w.w))}<span class="mut small">${us.length ? us.length + ' of ' + items.length + ' deliverables' : w.open ? 'open until Sunday' : 'nothing submitted'}</span></summary>
-      ${us.map(u => { const it = items.find(x => x.k === u.item); return `<div class="acthi"><b>${esc(it ? it.t : u.item)}</b> <span class="mut">· ${esc(u.status || 'Noted')}</span><p>${esc(u.note)}</p>${u.link ? `<a href="${esc(u.link)}" target="_blank" rel="noopener">Evidence ↗</a>` : '<span class="mut small">No evidence link</span>'}</div>`; }).join('')}</details>`; }).join('');
-  const delRow = it => { const l = actLatest(p, it.k), rv = p.reviews[it.k] || {}, ev = p.updates.filter(u => u.item === it.k && u.link).slice(-1)[0];
-    return `<tr><td>${esc(it.t)}</td><td>${l ? esc(l.status || 'Noted') : '<span class="mut">Nothing yet</span>'}</td><td>${ev ? `<a href="${esc(ev.link)}" target="_blank" rel="noopener">Open ↗</a>` : '<span class="mut">—</span>'}</td><td>${esc(rv.q || '—')}</td><td>${esc(rv.i || '—')}</td></tr>${rv.note ? `<tr class="actnote"><td colspan="5"><span class="mut">Assessor:</span> ${esc(rv.note)}</td></tr>` : ''}`; };
-  const yn = v => v == null ? '<span class="mut">not yet</span>' : v ? '<b class="actok">Yes</b>' : '<b class="actlate">No</b>';
-  return `<section class="xcard actrep"><div class="thd"><h3 style="margin:0">Acting report</h3><div class="xrow" style="gap:8px"><span class="mut small">${p.phase === 'final' || p.decision ? 'Final — cut-off ' + esc(actDay(r.cutoff)) : 'Updates by itself from the weekly submissions · final on ' + esc(actDay(r.cutoff))}</span><button class="xbtn sm ghost noprint" data-act="act_print">Print or save as PDF</button></div></div>
-      <div class="actiles">${tile(`${r.submitted || 0} of ${r.counted || 0}`, 'weeks submitted', r.pct != null ? r.pct + '% compliance' : 'no finished week yet', r.pct != null && r.pct < (d.passPct || 80))}
-        ${tile(`${r.evidenced || 0} of ${r.items || items.length}`, 'deliverables with evidence', `${r.done || 0} marked Done`)}
-        ${tile(`${r.rated || 0} of ${r.items || items.length}`, 'rated by the assessor', 'done well / led somewhere')}
-        ${tile(`${checks} of 3`, 'checkpoints', ACT_CHECKS.map(c => (p.checks[c[0]] ? '' : 'no ') + c[1].split(' ')[0].toLowerCase()).join(' · '))}</div>
-      <div class="actchips">${chips || '<span class="mut small">No weeks yet</span>'}</div>
-      <h4>Week by week</h4>${weekRows || '<p class="mut small">Nothing submitted yet.</p>'}
-      <h4>Deliverables</h4><div class="tscroll"><table class="tt"><thead><tr><th>Deliverable</th><th>Latest</th><th>Evidence</th><th>Done well?</th><th>Led somewhere?</th></tr></thead><tbody>${items.map(delRow).join('')}</tbody></table></div>
-      <h4>Result</h4>
-      ${fin && fin.scores ? `<table class="tt actsc"><tbody>${ACT_DOMAINS[p.role].map(([n, w], i) => `<tr><td>${esc(n)}</td><td class="num mut">${w}%</td><td class="num"><b>${fin.scores[i]}</b></td></tr>`).join('')}
-          ${fin.adj ? `<tr><td>360 adjustment (L&amp;D)</td><td></td><td class="num">${fin.adj > 0 ? '+' : ''}${Number(fin.adj).toFixed(1)}</td></tr>` : ''}<tr class="acttot"><td>Final score</td><td></td><td class="num"><b>${Number(fin.total).toFixed(2)}</b></td></tr></tbody></table>`
-        : `<p class="mut small" style="margin:0">The assessor's final review is not done yet.</p>`}
-      <div class="actrule"><div>Final score ${d.passScore || 3}+ : ${yn(res.scoreOk)}</div><div>${d.passPct || 80}% of weeks submitted: ${yn(res.compOk)}</div>
-        <div>${p.decision ? `Result: <b class="${p.decision === 'Pass' ? 'actok' : 'actlate'}">${esc(p.decision)}</b>` : res.suggested ? `By the rule: <b>${esc(res.suggested)}</b> <span class="mut small">(L&amp;D confirms)</span>` : '<span class="mut">Result after the final review</span>'}</div></div>
-      ${p.decision && p.decisionNote ? `<p class="actck-n"><span class="mut">Note from L&amp;D:</span> ${esc(p.decisionNote)}</p>` : ''}
-      ${fin && fin.gaps ? `<p class="actck-n"><span class="mut">To work on:</span> ${esc(fin.gaps)}</p>` : ''}</section>`;
-}
 function actChecksHtml(p, canEdit){
   const D = ACT_DOMAINS[p.role];
   const one = ([k, title, focus]) => { const c = p.checks[k], editing = ACT.chk && ACT.chk.nrp === p.nrp && ACT.chk.which === k;
     if (editing) return actCheckForm(p, k, title);
+    if (k === 'mid') return actMeetHtml(p, ACT.d, ACT.d.kind === 'ld', canEdit) + (c ? `<div class="actck"><div class="actck-h"><b>Mid-cycle notes</b><span class="mut small">${esc(actDay(c.at))} · ${esc(c.by || '')}</span></div><p class="actck-n">${esc(c.note)}</p>${c.gaps ? `<p class="actck-n"><span class="mut">To work on:</span> ${esc(c.gaps)}</p>` : ''}</div>` : '');
     return `<div class="actck"><div class="actck-h"><b>${title}</b>${c ? `<span class="mut small">${esc(actDay(c.at))} · ${esc(c.by || '')}</span>` : `<span class="mut small">Not done yet — ${focus.toLowerCase()}</span>`}
         ${canEdit ? `<button class="xbtn sm ghost" data-act="act_chkopen" data-v="${k}">${c ? 'Edit' : 'Record'}</button>` : ''}</div>
       ${c ? `<p class="actck-n">${esc(c.note)}</p>${c.gaps ? `<p class="actck-n"><span class="mut">To work on:</span> ${esc(c.gaps)}</p>` : ''}
         ${k === 'final' && c.scores ? `<table class="tt actsc"><tbody>${D.map(([n, w], i) => `<tr><td>${esc(n)}</td><td class="num mut">${w}%</td><td class="num"><b>${c.scores[i]}</b></td></tr>`).join('')}
           <tr><td>360° adjustment</td><td></td><td class="num">${c.adj > 0 ? '+' : ''}${Number(c.adj || 0).toFixed(1)}</td></tr><tr class="acttot"><td>Final score</td><td></td><td class="num"><b>${Number(c.total).toFixed(2)}</b></td></tr></tbody></table>
           <p class="actck-n"><span class="mut">Assessor recommends:</span> <b>${esc(c.rec)}</b></p>` : ''}` : ''}</div>`; };
-  return `<details class="xcard tsec" open><summary><span class="tsec-t">Checkpoints</span><span class="mut small">${ACT_CHECKS.filter(c => p.checks[c[0]]).length} of 3 done</span><span class="tsec-c" aria-hidden="true"></span></summary><div class="tsec-b">
+  return `<details class="xcard tsec actchecks" open><summary><span class="tsec-t">Checkpoints</span><span class="mut small">${ACT_CHECKS.filter(c => p.checks[c[0]]).length} of 3 done</span><span class="tsec-c" aria-hidden="true"></span></summary><div class="tsec-b">
     ${ACT_CHECKS.map(one).join('')}
     ${p.decision ? `<div class="actck"><div class="actck-h"><b>Decision: ${esc(p.decision)}</b><span class="mut small">${esc(actDay(p.decisionAt))} · L&amp;D</span></div>${p.decisionNote ? `<p class="actck-n">${esc(p.decisionNote)}</p>` : ''}</div>` : ''}</div></details>`;
 }
 function actCheckForm(p, k, title){
   const c = ACT.chk, D = ACT_DOMAINS[p.role], W = D.map(x => x[1]);
   const full = k === 'final' && c.scores.every(x => x >= 1), tot = full ? c.scores.reduce((s, x, i) => s + x * W[i] / 100, 0) + (+c.adj || 0) : null;
-  const rv = key => p.reviews[key] || {};
+  const ev = key => { const us = actRep(p).filter(u => u.item === key); if (!us.length) return 'no reports';
+    const w = us.filter(u => u.q && u.q.r === 'Done well').length, ni = us.filter(u => u.q && u.q.r === 'Needs improvement').length; return us.length + ' report' + (us.length === 1 ? '' : 's') + (w ? ', ' + w + ' done well' : '') + (ni ? ', ' + ni + ' need improvement' : ''); };
   return `<div class="actck edit"><div class="actck-h"><b>${title}</b></div>
     <div class="xfield"><label for="ck-n">What you checked and what you saw</label><textarea class="xinput" id="ck-n" rows="3" data-actc="note">${esc(c.note)}</textarea></div>
     <div class="xfield"><label for="ck-g">What to work on next <span class="mut">(the candidate sees this)</span></label><textarea class="xinput" id="ck-g" rows="2" data-actc="gaps">${esc(c.gaps)}</textarea></div>
     ${k === 'final' ? `<table class="tt actsc"><thead><tr><th>Domain</th><th class="num">Weight</th><th>From the weekly evidence</th><th class="num">Score 1–4</th></tr></thead><tbody>
-      ${D.map(([n, w], i) => `<tr><td>${esc(n)}</td><td class="num mut">${w}%</td><td class="mut small">${ACT_ITEMS[p.role].filter(it => it.d === i + 1).map(it => `${esc(it.t)}: ${actLatest(p, it.k) ? 'done well ' + esc(rv(it.k).q || '—') + ', led somewhere ' + esc(rv(it.k).i || '—') : 'no update'}`).join('<br>') || '—'}</td>
+      ${D.map(([n, w], i) => `<tr><td>${esc(n)}</td><td class="num mut">${w}%</td><td class="mut small">${ACT_ITEMS[p.role].filter(it => it.d === i + 1).map(it => `${esc(it.t)}: ${ev(it.k)}`).join('<br>') || '—'}</td>
         <td class="num"><select class="xinput sm" data-actcs="${i}" aria-label="Score for ${esc(n)}"><option value="0">—</option>${[1, 2, 3, 4].map(x => `<option ${c.scores[i] === x ? 'selected' : ''}>${x}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table>
       <p class="mut small" style="margin:0">4 needs specific, repeated, documented evidence · 3 steady and reliable · 2 partly meets · 1 little or no evidence. A score below 2 needs a documented example in your note.</p>
       ${p.role === 'ST' ? `<label class="actcb"><input type="checkbox" data-actcb="logok" ${c.logok ? 'checked' : ''}> A coaching log exists <span class="mut">(without it, Mentorship cannot score above 2)</span></label>
         <label class="actcb"><input type="checkbox" data-actcb="d5ok" ${c.d5ok ? 'checked' : ''}> Persona is based on at least 2 separate data points</label>` : ''}
       <div class="xrow"><div class="xfield" style="flex:1"><span class="lbl small">Score from the 5 areas</span><div class="acttotal">${tot == null ? '—' : tot.toFixed(2)}</div></div></div>
-      <p class="mut small" style="margin:0">L&amp;D adds the 360 adjustment (up to ±0.2, from its own 360 review) with the final decision. Pass needs ${ACT.d.passScore || 3}+ and ${ACT.d.passPct || 80}% of weeks submitted.</p>` : ''}
+      <p class="mut small" style="margin:0">L&amp;D adds the 360 adjustment (up to ±0.2, from its own 360 review) with the final decision. Pass needs ${ACT.d.passScore || 3}+ and ${ACT.d.passPct || 80}% weekly compliance.</p>` : ''}
     <div class="xrow"><button class="xbtn primary" data-act="act_chksave" ${ACT.busy ? 'disabled' : ''}>Save ${title.toLowerCase()}</button><button class="xbtn ghost" data-act="act_chkclose">Cancel</button><span class="mut small">The candidate gets an e-mail and sees your note.</span></div></div>`;
 }
+/* ---------- shared pieces: weeks, status, quality ---------- */
+const ACT_PER = () => (ACT.d && ACT.d.perWeek) || 2;
+function actRep(p){ return p.reported || (p.reported = p.updates.filter(u => String(u.note || '').trim())); }
+function actWeekN(p, w){ return actRep(p).filter(u => u.week === w).length; }
+function actStatus(p, d){ const r = p.report || {};
+  if (p.decision) return { t: p.decision, cls: p.decision === 'Pass' ? 'good' : 'bad', k: 'done' };
+  if (d.today < p.start) return { t: 'Not started', cls: '', k: 'wait' };
+  if (r.pct == null) return { t: 'Started', cls: '', k: 'wait' };
+  return r.pct >= (d.passPct || 80) ? { t: 'On track', cls: 'good', k: 'o' } : r.pct >= 50 ? { t: 'Needs a push', cls: 'warn', k: 'p' } : { t: 'Behind', cls: 'bad', k: 'b' }; }
+function actCell(w, N){ if (!w) return `<span class="actc fut">–</span>`;
+  const n = Math.min(w.n, N), cls = w.n >= N ? 'ok' : w.open ? 'now' : w.n ? 'half' : 'miss';
+  return `<span class="actc ${cls}" title="Week of ${esc(actDay(w.w))}: ${w.n} reported${w.open && w.n < N ? ', open until Sunday' : ''}">${n}/${N}</span>`; }
+function actWeekRange(w){ const a = parseD(w); if (!a) return w; const b = new Date(a); b.setDate(b.getDate() + 6); return a.getDate() + (a.getMonth() === b.getMonth() ? '' : ' ' + a.toLocaleDateString('en-GB', { month:'short' })) + '–' + b.toLocaleDateString('en-GB', { day:'numeric', month:'short' }); }
+function actMid(p, d){ const m = p.meeting, c = p.checks.mid, due = (p.due || {}).mid;
+  if (c) return { k: 'done', t: 'Done ' + actDay(c.at) };
+  if (m) return { k: 'set', t: 'Online · ' + actDay(m.date) + ' ' + m.start };
+  return { k: due && d.today > due ? 'late' : 'none', t: 'Not scheduled' + (due ? ' · due ' + actDay(due) : '') }; }
+function actChecksChips(p, d){ const due = p.due || {}, mid = actMid(p, d);
+  const chip = (t, k, title) => `<span class="actck-c ${k}" title="${esc(title)}">${t}</span>`;
+  const st = (c, dd) => c ? 'done' : dd && d.today > dd ? 'late' : 'none';
+  return chip('I', st(p.checks.initial, due.initial), 'Initial check' + (p.checks.initial ? ': done' : due.initial ? ', due ' + actDay(due.initial) : ''))
+    + chip('M', mid.k === 'done' ? 'done' : mid.k, 'Mid-cycle check (online meeting): ' + mid.t)
+    + chip('F', st(p.checks.final, ''), 'Final review' + (p.checks.final ? ': done' : ', due ' + actDay((p.report || {}).cutoff || p.end))); }
+function actQKey(p, u){ return p.nrp + '|' + u.week + '|' + u.item; }
+/** One weekly report: what they did + evidence; L&D rates it, everyone else sees the rating. */
+function actQRow(p, u, ld, showWho){
+  const it = ACT_ITEMS[p.role].find(x => x.k === u.item), q = u.q || {}, key = actQKey(p, u), draft = ACT.q[key] != null ? ACT.q[key] : (q.c || ''), dirty = draft !== (q.c || '');
+  const left = `<div class="actq-l">${showWho ? `<span class="mut small">${esc(p.name)} · ${esc(shortC(p.center))} · week of ${esc(actDay(u.week))}</span>` : ''}<b>${esc(it ? it.t : u.item)}${u.status ? ` <span class="mut small" style="font-weight:400">· ${esc(u.status)}</span>` : ''}</b><p>${esc(u.note)}</p>${u.link ? `<a href="${esc(u.link)}" target="_blank" rel="noopener">Open evidence ↗</a>` : '<span class="mut small">No evidence link</span>'}</div>`;
+  if (!ld) return `<div class="actq">${left}<div class="actq-r">${q.r ? `<span class="xpill ${q.r === 'Done well' ? 'good' : 'warn'}">${esc(q.r)}</span>${q.c ? `<p class="small">${esc(q.c)}</p>` : ''}` : '<span class="mut small">Quality not checked yet</span>'}</div></div>`;
+  const a = `data-n="${esc(p.nrp)}" data-w="${esc(u.week)}" data-k="${esc(u.item)}"`;
+  return `<div class="actq">${left}<div class="actq-r"><div class="pipopts sm actqb">${['Done well', 'Needs improvement'].map(v => `<button data-act="act_q" ${a} data-v="${v}" aria-pressed="${q.r === v}" ${ACT.busy ? 'disabled' : ''}>${v}</button>`).join('')}</div>
+      <div class="xrow" style="gap:6px;flex-wrap:nowrap"><input class="xinput" data-actq="${esc(key)}" value="${esc(draft)}" placeholder="Comment for the candidate (optional)" aria-label="Comment: ${esc(it ? it.t : u.item)}"><button class="xbtn sm" data-act="act_qsave" ${a} ${ACT.busy || !dirty || !q.r ? 'disabled' : ''}>Save</button></div></div></div>`; }
+/** Weekly compliance and quality, newest week first. */
+function actWeeksHtml(p, d, ld){
+  const r = p.report || {}, N = ACT_PER(), ws = (r.weeks || []).slice().reverse(), total = r.weeksTotal || ws.length;
+  const box = (w) => { const i = (r.weeks || []).indexOf(w) + 1, us = actRep(p).filter(u => u.week === w.w);
+    const badge = w.n >= N ? ['good', w.n + ' reported · complete'] : w.open ? ['warn', w.n + ' of ' + N + ' so far · open until Sunday'] : ['bad', w.n + ' of ' + N + ' · incomplete'];
+    return `<div class="actwbox"><div class="actwbox-h"><b>Week ${i} · ${esc(actWeekRange(w.w))}</b><span class="xpill ${badge[0]}">${badge[1]}</span></div>
+      ${us.map(u => actQRow(p, u, ld)).join('') || '<p class="mut small" style="margin:6px 0 0">Nothing reported this week.</p>'}</div>`; };
+  return `<section class="xcard actrep"><div class="thd"><h3 style="margin:0">Weekly compliance and quality</h3><span class="mut small">${r.submitted || 0} of ${r.counted || 0} finished week${r.counted === 1 ? '' : 's'} complete · ${r.well || 0} done well · ${r.improve || 0} need${r.improve === 1 ? 's' : ''} improvement${r.toReview ? ' · ' + r.toReview + ' to review' : ''}</span></div>
+    ${ws.map(box).join('') || `<p class="mut small">No weeks yet. The acting period starts ${esc(actDay(p.start))}.</p>`}
+    <p class="tnote" style="text-align:left">At least ${N} deliverables a week = a complete week (${N}/${N}). Compliance = reports counted up to ${N} a week ÷ (${N} × finished weeks); week ${(r.weeks || []).length} of ${total}. Only L&amp;D checks quality: Done well or Needs improvement, with an optional comment the candidate sees.</p></section>`; }
+function actResultHtml(p, d){
+  const r = p.report || {}, res = r.result || {}, fin = p.checks.final;
+  const yn = v => v == null ? '' : v ? ' · Yes' : ' · No';
+  return `<section class="xcard actres"><div class="thd"><h3 style="margin:0">Result <span class="mut small" style="font-weight:400">(after ${esc(actDay(r.cutoff || d.cutoff))})</span></h3></div>
+    <div class="actres-t"><div class="${res.compOk === false ? 'bad' : res.compOk ? 'ok' : ''}"><span>Weekly compliance, need ${d.passPct || 80}%</span><b>${r.pct == null ? 'no finished week yet' : r.pct + '%' + yn(res.compOk)}</b></div>
+      <div class="${res.scoreOk === false ? 'bad' : res.scoreOk ? 'ok' : ''}"><span>Final score, need ${(d.passScore || 3).toFixed(1)}</span><b>${fin && fin.total != null ? Number(fin.total).toFixed(2) + yn(res.scoreOk) : 'after the final review'}</b></div></div>
+    ${fin && fin.scores ? `<table class="tt actsc"><tbody>${ACT_DOMAINS[p.role].map(([n, w], i) => `<tr><td>${esc(n)}</td><td class="num mut">${w}%</td><td class="num"><b>${fin.scores[i]}</b></td></tr>`).join('')}
+        ${fin.adj ? `<tr><td>360 adjustment (L&amp;D)</td><td></td><td class="num">${fin.adj > 0 ? '+' : ''}${Number(fin.adj).toFixed(1)}</td></tr>` : ''}<tr class="acttot"><td>Final score</td><td></td><td class="num"><b>${Number(fin.total).toFixed(2)}</b></td></tr></tbody></table>` : ''}
+    <p style="margin:10px 0 0">${p.decision ? `Result: <b class="${p.decision === 'Pass' ? 'actok' : 'actlate'}">${esc(p.decision)}</b>` : res.suggested ? `By the rule: <b>${esc(res.suggested)}</b> <span class="mut small">(L&amp;D confirms)</span>` : '<span class="mut">Pass needs both: compliance and the final score.</span>'}</p>
+    ${p.decision && p.decisionNote ? `<p class="actck-n"><span class="mut">Note from L&amp;D:</span> ${esc(p.decisionNote)}</p>` : ''}
+    ${fin && fin.gaps ? `<p class="actck-n"><span class="mut">To work on:</span> ${esc(fin.gaps)}</p>` : ''}</section>`; }
+/** The 6 steps of one person's acting period. */
+function actSteps(p, d){
+  const r = p.report || {}, due = p.due || {}, mid = actMid(p, d), n = (r.weeks || []).length, N = r.weeksTotal || n;
+  const ini = p.checks.initial ? ['done', actDay(p.checks.initial.at) + ' · done'] : due.initial && d.today > due.initial ? ['late', 'overdue · was due ' + actDay(due.initial)] : ['', 'by ' + actDay(due.initial)];
+  return [
+    { n: 1, name: 'Start', k: d.today >= p.start ? 'done' : '', s: actDay(p.start) + (d.today >= p.start ? ' · done' : ''), what: 'Your acting period begins.' },
+    { n: 2, name: 'Initial check', k: ini[0], s: ini[1], what: 'Your assessor checks you understand the role and notes the starting gaps.' },
+    { n: 3, name: 'Weekly evidence', k: d.today > ((r.cutoff) || p.until) ? 'done' : d.today >= p.start ? 'now' : '', s: d.today >= p.start ? `week ${n} of ${N}${r.pct != null ? ' · ' + r.pct + '% so far' : ''}` : 'at least ' + ACT_PER() + ' a week', what: `Every week: at least ${ACT_PER()} deliverables, what you did and an evidence link. L&D checks the quality.` },
+    { n: 4, name: 'Mid-cycle check', k: mid.k === 'done' ? 'done' : mid.k === 'set' ? 'set' : mid.k === 'late' ? 'late' : '', s: mid.k === 'set' ? 'online meeting · ' + actDay(p.meeting.date) + ', ' + p.meeting.start : mid.k === 'done' ? mid.t : 'online meeting · by ' + actDay(due.mid), what: 'A Google Meet with your assessor and L&D: what is done and what to fix.' },
+    { n: 5, name: '360 review', k: d.today >= '2026-12-19' ? 'now' : '', s: 'from 19 Dec · L&D form', what: 'Your center team gives feedback through L&D’s 360 form.' },
+    { n: 6, name: 'Cut-off and result', k: p.decision ? 'done' : '', s: p.decision ? p.decision : actDay(r.cutoff || d.cutoff), what: 'Final review by your assessor, then Pass or Not pass from L&D.' }]; }
+function actStepsHtml(p, d){ return `<section class="xcard"><ol class="actsteps">${actSteps(p, d).map(s => `<li class="${s.k}"><span class="actsteps-n">${s.n}</span><b>${s.name}</b><span class="small">${esc(s.s)}</span></li>`).join('')}</ol></section>`; }
+/** Mid-cycle meeting card: L&D schedules it (Google Meet link), everyone sees the join link. */
+function actMeetHtml(p, d, ld, canNote){
+  const m = p.meeting, f = ACT.meet && ACT.meet.nrp === p.nrp ? ACT.meet : null, c = p.checks.mid, due = (p.due || {}).mid;
+  if (f) return `<div class="actmeet edit"><b>Mid-cycle check · online meeting</b>
+    <div class="xrow" style="gap:8px;flex-wrap:wrap"><div class="xfield"><label for="mt-d">Date</label><input class="xinput" type="date" id="mt-d" data-actm="date" value="${esc(f.date)}"></div>
+      <div class="xfield"><label for="mt-t">Start</label><input class="xinput" type="time" id="mt-t" data-actm="start" value="${esc(f.start)}"></div>
+      <div class="xfield"><label for="mt-l">Length</label><select class="xinput" id="mt-l" data-actm="mins">${[15, 30, 45, 60].map(x => `<option value="${x}" ${+f.mins === x ? 'selected' : ''}>${x} min</option>`).join('')}</select></div></div>
+    <p class="mut small" style="margin:0">Creates the event in your Google Calendar with a Google Meet link, and invites ${esc(p.name.split(' ')[0])}, the ${esc(shortC(p.center))} center team and you.</p>
+    <div class="xrow"><button class="xbtn primary" data-act="act_meetsave" ${ACT.busy || !f.date || !f.start ? 'disabled' : ''}>${m ? 'Move the meeting' : 'Create the meeting'}</button><button class="xbtn ghost" data-act="act_meetclose">Cancel</button></div></div>`;
+  if (!m) return `<div class="actmeet none"><b>Mid-cycle check · online meeting</b><span class="small ${due && d.today > due && !c ? 'actlate' : 'mut'}">${c ? 'Notes written ' + esc(actDay(c.at)) : 'Not scheduled yet' + (due ? ' · due ' + esc(actDay(due)) : '')}</span>
+    ${ld ? `<div class="xrow"><button class="xbtn sm primary" data-act="act_meetopen">Schedule mid-cycle meeting</button>${canNote ? `<button class="xbtn sm ghost" data-act="act_chkopen" data-v="mid">${c ? 'Edit the notes' : 'Write the notes'}</button>` : ''}</div>` : canNote ? `<div class="xrow"><button class="xbtn sm ghost" data-act="act_chkopen" data-v="mid">${c ? 'Edit the notes' : 'Write the notes'}</button></div>` : ''}</div>`;
+  return `<div class="actmeet"><b>Mid-cycle check · online meeting</b><span>${esc(parseD(m.date) ? parseD(m.date).toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' }) : m.date)}, ${esc(m.start)}–${esc(m.end)} (${m.mins || 30} min) · Google Meet</span>
+    <span class="mut small">${d.kind === 'candidate' ? 'With your assessor and L&amp;D. It is also in your Google Calendar.' : 'Invited: ' + esc(p.name.split(' ')[0]) + ', ' + esc(shortC(p.center)) + ' center team, L&amp;D · in everyone’s calendar'}</span>
+    <div class="xrow" style="gap:8px;flex-wrap:wrap">${m.link ? `<a class="xbtn sm actjoin" href="${esc(m.link)}" target="_blank" rel="noopener">Join the meeting</a>` : ''}${ld ? `<button class="xbtn sm ghost" data-act="act_meetopen">Change time</button>` : ''}${canNote ? `<button class="xbtn sm ghost" data-act="act_chkopen" data-v="mid">${c ? 'Edit the notes' : 'Write the notes'}</button>` : ''}</div></div>`; }
 /* ---------- candidate ---------- */
 function actCandidateHtml(p, d){
-  const items = ACT_ITEMS[p.role], open = !p.paused && d.today >= p.start && d.today <= ((p.report || {}).cutoff || p.until), f = actForm(p, d.week), weeks = actWeeks(p, d.today), past = weeks.filter(w => w !== d.week).reverse();
-  const filled = items.filter(it => f.items[it.k].status || f.items[it.k].note).length, saved = p.updates.some(u => u.week === d.week);
+  const items = ACT_ITEMS[p.role], r = p.report || {}, N = ACT_PER(), open = !p.paused && d.today >= p.start && d.today <= (r.cutoff || p.until), f = actForm(p, d.week);
+  const filled = items.filter(it => f.items[it.k].status || f.items[it.k].note).length, saved = p.updates.some(u => u.week === d.week), now = actWeekN(p, d.week), st = actStatus(p, d);
   const row = it => { const v = f.items[it.k];
     return `<div class="actit"><div class="actit-h"><div><b>${esc(it.t)}</b><div class="mut small">${esc(it.eg)}</div></div>
         <div class="pipopts sm">${['In progress', 'Done'].map(s => `<button data-act="act_status" data-k="${it.k}" data-v="${s}" aria-pressed="${v.status === s}">${s}</button>`).join('')}</div></div>
       <textarea class="xinput" rows="2" data-actf="${it.k}|note" placeholder="What you did this week" aria-label="What you did: ${esc(it.t)}">${esc(v.note)}</textarea>
       <input class="xinput" data-actf="${it.k}|link" value="${esc(v.link)}" placeholder="Link to the evidence — ${esc(it.ev)}" aria-label="Evidence link: ${esc(it.t)}"></div>`; };
-  const prog = it => { const ws = [...new Set(p.updates.filter(u => u.item === it.k && (u.status || u.note)).map(u => u.week))], l = actLatest(p, it.k), r = p.reviews[it.k] || {};
-    return `<tr><td>${esc(it.t)}</td><td class="num">${ws.length} / ${weeks.length}</td><td>${l ? esc(l.status || 'Noted') : '<span class="mut">—</span>'}</td><td>${esc(r.q || '—')}</td><td>${esc(r.i || '—')}</td></tr>${r.note ? `<tr class="actnote"><td colspan="5"><span class="mut">Assessor:</span> ${esc(r.note)}</td></tr>` : ''}`; };
-  const wk = w => { const us = p.updates.filter(u => u.week === w && (u.status || u.note));
-    return `<details class="acthist"><summary>Week of ${esc(actDay(w))}<span class="mut small">${us.length ? us.length + ' of ' + items.length + ' updated' : 'no update'}</span></summary>
-      ${us.map(u => { const it = items.find(x => x.k === u.item); return `<div class="acthi"><b>${esc(it ? it.t : u.item)}</b> <span class="mut">· ${esc(u.status || 'Noted')}</span><p>${esc(u.note)}</p>${u.link ? `<a href="${esc(u.link)}" target="_blank" rel="noopener">Evidence ↗</a>` : ''}</div>`; }).join('') || '<p class="mut small">Nothing was written this week.</p>'}</details>`; };
-  return `<div class="xstack acting">${actHeadHtml(p, d)}
-    <p class="mut small" style="margin:0">FO, co-teach and mentoring counts are checked in the <a href="${ACT_TRACKER}" target="_blank" rel="noopener">Teacher Activity Tracker ↗</a> — keep logging them there. Here you write what you did and link the evidence.</p>
+  const bars = (r.weeks || []).concat(Array.from({ length: Math.max(0, (r.weeksTotal || 0) - (r.weeks || []).length) }, () => null)).map((w, i) => { const n = w ? Math.min(w.n, N) : 0, cls = !w ? 'fut' : w.n >= N ? 'ok' : w.open ? 'now' : w.n ? 'half' : 'miss';
+    return `<div class="actbar ${cls}"><span class="actbar-v">${w ? (w.open && w.n < N ? w.n + ' so far' : n + '/' + N) : ''}</span><div class="actbar-t"><div style="height:${w ? Math.max(4, Math.round(n / N * 100)) : 0}%"></div></div><span class="actbar-w">W${i + 1}</span></div>`; }).join('');
+  const fb = actRep(p).filter(u => u.q && u.q.r).sort((a, b) => (b.q.at || '').localeCompare(a.q.at || '') || b.week.localeCompare(a.week));
+  const past = (r.weeks || []).filter(w => w.w !== d.week).slice().reverse();
+  return `<div class="xstack acting">
+    <section class="xcard"><span class="eyebrow">${esc(actDay(p.start))} – ${esc(actDay(r.cutoff || p.until))} · Week ${(r.weeks || []).length} of ${r.weeksTotal || 0}</span><h3 style="margin:2px 0 0">Hi ${esc(p.name.split(' ')[0])}</h3><div class="mut small">${esc(actRole(p.role))} · ${esc(shortC(p.center))}</div></section>
+    ${d.today >= p.start ? `<div class="callout ${st.cls === 'bad' ? 'bad' : st.cls === 'warn' ? 'warn' : st.cls === 'good' ? 'good' : ''} actstat"><b>${esc(st.t)}${r.pct != null && !p.decision ? ' · ' + r.pct + '% so far' : ''}</b><span class="small">Report at least ${N} deliverables every week. To pass you need ${d.passPct || 80}% weekly compliance and a final score of ${(d.passScore || 3).toFixed(1)}.${open && now < N ? ` Do ${N - now} more this week.` : ''}</span></div>` : ''}
     ${open ? `<section class="xcard"><div class="thd"><h3 style="margin:0">This week — week of ${esc(actDay(d.week))}</h3><span class="mut small">${saved ? 'Saved · you can still change it until Sunday' : 'Not saved yet'}</span></div>
-      <p class="mut small" style="margin:0 0 4px">Fill in what you worked on. After Sunday this week is locked, so update every week — also for items you already marked Done: write what you did on them this week.</p>
+      <div class="actprog"><div class="actprog-t"><div style="width:${Math.min(100, Math.round(now / N * 100))}%"></div></div><span class="mut small">${now} of ${N} needed this week${now >= N ? ' · complete, you can report more' : ' · you can report more'}</span></div>
+      <p class="mut small" style="margin:6px 0 4px">Write what you did and add the evidence link for at least ${N} deliverables. After Sunday this week is locked. Keep logging FO, co-teach and mentoring in the <a href="${ACT_TRACKER}" target="_blank" rel="noopener">Teacher Activity Tracker ↗</a>.</p>
       ${items.map(row).join('')}
-      <div class="xrow" style="margin-top:12px"><button class="xbtn primary" data-act="act_save" ${ACT.busy || !filled ? 'disabled' : ''}>Save this week’s update</button><span class="mut small">${filled} of ${items.length} filled in</span></div></section>`
-      : `<div class="callout">${d.today < p.start ? 'Your acting period starts ' + esc(actDay(p.start)) + '.' : 'Weekly updates closed on ' + esc(actDay((p.report || {}).cutoff || p.until)) + '. Your report below is final.'}</div>`}
-    ${actReportHtml(p, d, 'candidate')}
+      <div class="xrow" style="margin-top:12px"><button class="xbtn primary" data-act="act_save" ${ACT.busy || !filled ? 'disabled' : ''}>Save this week’s update</button><span class="mut small">${filled} filled in</span></div></section>`
+      : `<div class="callout">${d.today < p.start ? 'Your acting period starts ' + esc(actDay(p.start)) + '.' : 'Weekly updates closed on ' + esc(actDay(r.cutoff || p.until)) + '. Your report below is final.'}</div>`}
+    ${(r.weeks || []).length ? `<section class="xcard"><div class="thd"><h3 style="margin:0">My weeks</h3><span class="mut small">${r.pct != null ? r.pct + '% so far' : ''}</span></div><div class="actbars">${bars}</div>
+      <p class="tnote" style="text-align:left">At least ${N} deliverables a week = a complete week. To pass you need ${d.passPct || 80}% over all weeks.</p></section>` : ''}
+    ${p.meeting ? actMeetHtml(p, d, false, false) : ''}
+    ${fb.length ? `<section class="xcard"><div class="thd"><h3 style="margin:0">Feedback from L&amp;D</h3><span class="mut small">${r.well || 0} done well · ${r.improve || 0} need improvement</span></div>
+      ${fb.map(u => { const it = items.find(x => x.k === u.item); return `<div class="actfb"><b class="${u.q.r === 'Done well' ? 'actok' : 'actwarn'}">Week of ${esc(actDay(u.week))} · ${esc(it ? it.t : u.item)} · ${esc(u.q.r)}</b>${u.q.c ? `<span>“${esc(u.q.c)}”</span>` : ''}<span class="mut small">L&amp;D${u.q.at ? ' · ' + esc(actDay(u.q.at)) : ''}</span></div>`; }).join('')}</section>` : ''}
+    <section class="xcard"><div class="thd"><h3 style="margin:0">My journey</h3></div><ol class="actjv">${actSteps(p, d).map(s => `<li class="${s.k}"><span class="actsteps-n">${s.n}</span><div><b>${s.name}</b> <span class="small">${esc(s.s)}</span><div class="mut small">${esc(s.what)}</div></div></li>`).join('')}</ol></section>
+    ${past.length ? `<section class="xcard"><div class="thd"><h3 style="margin:0">Past weeks</h3></div>${past.map(w => { const us = actRep(p).filter(u => u.week === w.w);
+      return `<details class="acthist"><summary>Week of ${esc(actDay(w.w))}<span class="mut small">${w.n} of ${N}${w.n >= N ? ' · complete' : ''}</span></summary>${us.map(u => actQRow(p, u, false)).join('') || '<p class="mut small">Nothing was written this week.</p>'}</details>`; }).join('')}</section>` : ''}
+    ${actResultHtml(p, d)}
     ${actChecksHtml(p, false)}</div>`;
 }
-/* ---------- assessor / L&D ---------- */
+/* ---------- L&D / assessor: overview ---------- */
 function actListHtml(d){
-  const ps = d.people.slice().sort((a, b) => a.role.localeCompare(b.role) || a.center.localeCompare(b.center) || a.name.localeCompare(b.name));
-  const has = (p, w) => p.updates.some(u => u.week === w && (u.status || u.note));
-  const upd = p => has(p, d.week), n = ps.filter(upd).length, started = ps.some(p => d.today >= p.start), ld = d.kind === 'ld';
-  const done = p => ACT_ITEMS[p.role].filter(it => p.updates.some(u => u.item === it.k && u.status === 'Done')).length;
-  const weeksOf = p => (d.weeks || []).filter(w => w >= actWeekStart(p.start) && w <= d.week);
-  const past = p => weeksOf(p).filter(w => w < d.week);                       // finished weeks only count for compliance
-  const comp = p => { const ws = past(p); return ws.length ? Math.round(100 * ws.filter(w => has(p, w)).length / ws.length) : null; };
-  const waiting = p => ACT_ITEMS[p.role].filter(it => p.updates.some(u => u.item === it.k && u.status === 'Done') && !(p.reviews[it.k] && (p.reviews[it.k].q || p.reviews[it.k].i))).length;
-  const nextCheck = p => { const c = ACT_CHECKS.find(c => !p.checks[c[0]]); if (!c) return { t: 'All 3 done', late: false };
-    const due = (p.due || {})[c[0]] || ''; return { t: c[1] + (due ? ' · due ' + actDay(due) : ''), late: !!due && d.today > due }; };
-  const chip = (p, w) => w === d.week ? `<span class="actwk ${has(p, w) ? 'ok' : 'now'}" title="Week of ${esc(actDay(w))}${has(p, w) ? ': updated' : ': open until Sunday'}">${esc(actDay(w))}</span>`
-    : `<span class="actwk ${has(p, w) ? 'ok' : 'miss'}" title="Week of ${esc(actDay(w))}: ${has(p, w) ? 'updated' : 'missed'}">${esc(actDay(w))}</span>`;
-  const lateList = ps.filter(p => d.today >= p.start && !p.paused && !upd(p));
-  // who checks: one line per assessor account
-  const byA = {}; ps.forEach(p => (p.assessors && p.assessors.length ? p.assessors : [{ name: 'No center account in Access', email: '' }]).forEach(x => { const k = x.email || x.name; (byA[k] = byA[k] || { x, ps: [] }).ps.push(p); }));
+  const ps = d.people.slice().sort((a, b) => ({ b: 0, p: 1, wait: 2, o: 3, done: 4 }[actStatus(a, d).k] - { b: 0, p: 1, wait: 2, o: 3, done: 4 }[actStatus(b, d).k]) || a.name.localeCompare(b.name));
+  const ld = d.kind === 'ld', N = ACT_PER(), started = ps.some(p => d.today >= p.start), W = Math.max(0, ...ps.map(p => (p.report || {}).weeksTotal || 0)), cur = Math.max(0, ...ps.map(p => ((p.report || {}).weeks || []).length));
+  const sts = ps.map(p => actStatus(p, d)), cnt = k => sts.filter(s => s.k === k).length;
+  const pcts = ps.map(p => (p.report || {}).pct).filter(x => x != null), avg = pcts.length ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null;
+  const behind = ps.filter(p => d.today >= p.start && !p.paused && !p.decision && actWeekN(p, d.week) < N);
+  const toReview = ps.reduce((t, p) => t + ((p.report || {}).toReview || 0), 0);
+  const ini = ps.filter(p => p.checks.initial).length, iniLate = ps.filter(p => !p.checks.initial && (p.due || {}).initial && d.today > p.due.initial).length;
+  const midSet = ps.filter(p => p.meeting || p.checks.mid).length, dec = ps.filter(p => p.decision).length, mdue = ps[0] && ps[0].due ? ps[0].due.mid : '';
+  const steps = [
+    ['Start', actDay(ps[0] ? ps[0].start : ''), started ? ps.filter(p => d.today >= p.start).length + ' started' : 'not yet', started ? 100 : 0, ''],
+    ['Initial check', 'by ' + actDay(ps[0] && ps[0].due ? ps[0].due.initial : '') + ' · assessor', `${ini} of ${ps.length} done${iniLate ? ' · ' + iniLate + ' overdue' : ''}`, ps.length ? Math.round(100 * ini / ps.length) : 0, iniLate ? 'bad' : ''],
+    ['Weekly evidence', `at least ${N} a week · ${W} weeks`, `week ${cur} of ${W}`, W ? Math.round(100 * Math.max(0, cur - 1) / W) : 0, ''],
+    ['Mid-cycle check', 'online meeting · by ' + actDay(mdue), `${midSet} of ${ps.length} scheduled`, ps.length ? Math.round(100 * midSet / ps.length) : 0, 'blue'],
+    ['360 review', 'from 19 Dec · L&D form', d.today >= '2026-12-19' ? 'open' : 'not due yet', 0, ''],
+    ['Cut-off and result', actDay(d.cutoff) + ' · final review, Pass / Not pass', dec ? `${dec} of ${ps.length} decided` : 'not due yet', ps.length ? Math.round(100 * dec / ps.length) : 0, '']];
+  const qcell = r => !r.reported ? '<span class="small mut">no reports yet</span>' : `<span class="small actqc">${r.well ? `<span class="actok">${r.well} done well</span>` : ''}${r.improve ? `<span class="actwarn">${r.improve} need improvement</span>` : ''}<span class="mut">${r.toReview ? r.toReview + ' to review' : 'all reviewed'}</span></span>`;
+  const row = (p, s) => { const r = p.report || {}, ws = r.weeks || [];
+    return `<tr class="tclick" data-act="act_open" data-v="${esc(p.nrp)}"><td><b>${esc(p.name)}</b><div class="mut small">${p.role} · ${esc(shortC(p.center))}${(p.assessors || []).length ? '' : ' · <span class="actlate">no assessor in Access</span>'}</div></td>
+      ${Array.from({ length: W }, (_, i) => `<td class="actcw">${d.today < p.start ? '<span class="actc fut">–</span>' : actCell(ws[i], N)}</td>`).join('')}
+      <td class="num"><b class="${s.cls === 'bad' ? 'actlate' : s.cls === 'warn' ? 'actwarn' : s.cls === 'good' ? 'actok' : ''}">${r.pct == null ? '—' : r.pct + '%'}</b></td>
+      <td>${qcell(r)}</td><td class="nowrap">${actChecksChips(p, d)}</td><td><span class="xpill ${s.cls}">${esc(s.t)}</span></td></tr>`; };
   return `<div class="xstack acting">
-    ${started ? `<section class="xcard actsum"><div class="xrow xbetween" style="flex-wrap:wrap;gap:10px">
-        <div><b>Week of ${esc(actDay(d.week))}:</b> ${n} of ${ps.length} updated${lateList.length ? ` · <span class="actlate">${lateList.length} not yet</span> (open until Sunday)` : ''}</div>
-        ${ld ? `<div class="xrow" style="gap:8px"><button class="xbtn sm primary" data-act="act_remind" data-w="candidates" ${lateList.length && !ACT.busy ? '' : 'disabled'}>Remind the ${lateList.length} who have not updated</button>
-          <button class="xbtn sm ghost" data-act="act_remind" data-w="assessors" ${ACT.busy ? 'disabled' : ''}>Send assessors what is waiting</button></div>` : ''}</div>
-      ${lateList.length ? `<p class="mut small" style="margin:6px 0 0">Not updated yet: ${lateList.map(p => esc(p.name)).join(', ')}</p>` : ''}
-      <p class="mut small" style="margin:6px 0 0">Timeline: weekly updates until <b>${esc(actDay(d.cutoff))}</b>, then the report is final and results are shared. A weekly report e-mail goes out every Monday to L&amp;D, each candidate and their center team.</p>
-      ${ld ? `<p class="mut small" style="margin:6px 0 0">Friday reminder to candidates with an empty week: ${d.auto ? 'on' : 'off (add <b>acting_auto_reminders</b> = <b>yes</b> in Settings to turn it on)'}.</p>` : ''}</section>`
-      : `<p class="mut small" style="margin:0">${ps.length} candidate${ps.length === 1 ? '' : 's'} · the acting period starts ${esc(actDay(ps[0] ? ps[0].start : ''))}</p>`}
-    <section class="xcard"><div class="tscroll"><table class="tt actt"><thead><tr><th>Candidate</th><th>Weekly updates</th><th class="num">Compliance</th><th class="num">Evidence</th><th class="num">Rated</th><th>Next checkpoint</th><th>Result</th></tr></thead>
-      <tbody>${ps.map(p => { const r = p.report || {}, nc = nextCheck(p), wt = waiting(p), res = r.result || {}; return `<tr class="tclick" data-act="act_open" data-v="${esc(p.nrp)}">
-        <td><b>${esc(p.name)}</b><div class="mut small">${p.role} · ${esc(shortC(p.center))}${(p.assessors || []).length ? ' · ' + esc(p.assessors.map(x => x.name).join(', ')) : ' · <span class="actlate">no assessor in Access</span>'}</div></td>
-        <td class="nowrap">${d.today < p.start ? '<span class="mut">Not started</span>' : (r.weeks || []).map(w => `<span class="actwk ${w.ok ? 'ok' : w.open ? 'now' : 'miss'}" title="Week of ${esc(actDay(w.w))}">${esc(actDay(w.w))}</span>`).join('')}</td>
-        <td class="num ${r.pct != null && r.pct < (d.passPct || 80) ? 'actlate' : ''}">${r.pct == null ? '<span class="mut">—</span>' : r.pct + '%'}<div class="mut small">${r.submitted || 0} of ${r.counted || 0} weeks</div></td>
-        <td class="num">${r.evidenced || 0}/${r.items || 7}</td>
-        <td class="num ${wt ? 'actlate' : ''}">${r.rated || 0}/${r.items || 7}${wt ? `<div class="small">${wt} waiting</div>` : ''}</td>
-        <td class="nowrap ${nc.late ? 'actlate' : 'mut'}">${esc(nc.t)}${nc.late ? ' · overdue' : ''}</td>
-        <td>${p.decision ? `<b class="${p.decision === 'Pass' ? 'actok' : 'actlate'}">${esc(p.decision)}</b>` : res.suggested ? `<span class="mut">rule: ${esc(res.suggested)}</span>` : '<span class="mut">—</span>'}</td></tr>`; }).join('') || '<tr><td colspan="8" class="mut">No acting candidates in your center.</td></tr>'}</tbody></table></div>
-      <p class="tnote" style="text-align:left">Weekly updates: green = submitted, red = missed, yellow = this week (open until Sunday). Compliance counts finished weeks. Evidence = deliverables with an evidence link. Rated = rated by the assessor. Result: Pass needs a final score of ${d.passScore || 3}+ and ${d.passPct || 80}% of weeks; L&amp;D confirms. Weekly updates close ${esc(actDay(d.cutoff))}. Tap a name for the full report.</p></section>
-    ${ld && started ? `<section class="xcard"><h3 style="margin:0 0 8px">Who checks what</h3><div class="actwho">${Object.values(byA).sort((a, b) => b.ps.length - a.ps.length).map(g => {
-        const w = g.ps.reduce((t, p) => t + waiting(p), 0), od = g.ps.filter(p => nextCheck(p).late).length, nu = g.ps.filter(p => d.today >= p.start && !upd(p)).length;
-        return `<div class="actwho-r"><div><b>${esc(g.x.name)}</b>${g.x.email ? `<div class="mut small">${esc(g.x.email)}</div>` : ''}</div>
-          <div class="small">${g.ps.map(p => esc(p.name)).join(', ')}</div>
-          <div class="small">${w ? `<span class="actlate">${w} to review</span>` : '<span class="mut">nothing to review</span>'}${od ? ` · <span class="actlate">${od} checkpoint${od === 1 ? '' : 's'} overdue</span>` : ''}${nu ? ` · ${nu} without an update this week` : ''}</div></div>`; }).join('')}</div>
-      <p class="tnote" style="text-align:left">The assessor is the center account in the Access tab for that center. Checkpoints are due: initial check at the end of week 1, mid-cycle check half-way, final review on the last day.</p></section>` : ''}</div>`;
+    <section class="xcard"><div class="actov-h"><div><span class="eyebrow">Acting period · ${esc(actDay(ps[0] ? ps[0].start : ''))} – ${esc(actDay(d.cutoff))} · week ${cur} of ${W}</span><h3 style="margin:2px 0 0">Who is on track</h3></div>
+      ${ld ? `<div class="xrow" style="gap:8px;flex-wrap:wrap"><button class="xbtn sm" data-act="act_queue" ${toReview ? '' : 'disabled'}>Quality check: ${toReview} to review</button><button class="xbtn sm ghost" data-act="act_remind" data-w="candidates" ${behind.length && !ACT.busy ? '' : 'disabled'}>Remind the ${behind.length} who are behind</button></div>` : ''}</div>
+      <div class="actkpi"><div><b>${ps.length}</b><span>candidates</span></div><div><b>${avg == null ? '—' : avg + '%'}</b><span>average weekly compliance (${N} a week)</span></div>
+        <div><b class="actok">${cnt('o')}</b><span>on track</span></div><div><b class="actwarn">${cnt('p')}</b><span>need a push</span></div><div><b class="actlate">${cnt('b')}</b><span>behind</span></div></div></section>
+    <section class="xcard"><div class="thd"><h3 style="margin:0">The journey</h3></div><ol class="actjr">${steps.map(([n, w, c, pc, t]) => `<li><div class="actjr-bar"><div class="${t}" style="width:${pc}%"></div></div><b>${n}</b><span class="mut small">${esc(w)}</span><span class="small ${t === 'bad' ? 'actlate' : t === 'blue' ? 'actblue' : ''}">${esc(c)}</span></li>`).join('')}</ol></section>
+    <section class="xcard"><div class="tscroll"><table class="tt actt"><thead><tr><th>Candidate</th>${Array.from({ length: W }, (_, i) => `<th class="actcw">W${i + 1}</th>`).join('')}<th class="num">Overall</th><th>Quality (L&amp;D)</th><th>Checkpoints</th><th>Status</th></tr></thead>
+      <tbody>${ps.map((p, i) => row(p, actStatus(p, d))).join('') || `<tr><td colspan="${W + 5}" class="mut">No acting candidates in your center.</td></tr>`}</tbody></table></div>
+      <p class="tnote" style="text-align:left">Each week needs at least ${N} deliverables reported (what they did + an evidence link): ${N}/${N} = complete. Overall = reports counted up to ${N} a week ÷ (${N} × finished weeks); the open week counts once it is complete. Quality: L&amp;D marks each report Done well or Needs improvement. Checkpoints: I initial, M mid-cycle (online meeting, blue = scheduled), F final review; red = overdue. Tap a name for the full report.</p></section>
+    ${started ? `<p class="mut small" style="margin:0">Weekly updates until <b>${esc(actDay(d.cutoff))}</b>, then the report is final and results are shared. A weekly report e-mail goes out every Monday to L&amp;D, each candidate and their center team.${ld ? ` Friday reminder to candidates with fewer than ${N} this week: ${d.auto ? 'on' : 'off (add <b>acting_auto_reminders</b> = <b>yes</b> in Settings to turn it on)'}.` : ''}</p>` : ''}</div>`;
 }
-function actWeekStart(iso){ const d = parseD(iso); if (!d) return iso; d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+/** L&D's quality queue: every report not checked yet, newest first. */
+function actQueueHtml(d){
+  const list = []; d.people.forEach(p => actRep(p).forEach(u => { if (!(u.q && u.q.r) || ACT.qDone[actQKey(p, u)]) list.push([p, u]); }));
+  list.sort((a, b) => b[1].week.localeCompare(a[1].week) || a[0].name.localeCompare(b[0].name));
+  return `<div class="xstack acting"><div class="noprint"><button class="xbtn sm ghost" data-act="act_back">← All candidates</button></div>
+    <section class="xcard"><div class="thd"><h3 style="margin:0">Quality check</h3><span class="mut small">${list.filter(x => !(x[1].q && x[1].q.r)).length} to review · newest first</span></div>
+      ${list.map(([p, u]) => actQRow(p, u, true, true)).join('') || '<p class="mut">Everything is reviewed.</p>'}
+      <p class="tnote" style="text-align:left">Done well or Needs improvement saves straight away. The comment is optional; the candidate sees the rating and the comment.</p></section></div>`; }
+/* ---------- L&D / assessor: one candidate ---------- */
 function actDetailHtml(p, d){
-  const items = ACT_ITEMS[p.role], ld = d.kind === 'ld';
-  const item = it => { const us = p.updates.filter(u => u.item === it.k && (u.status || u.note)).sort((a, b) => b.week.localeCompare(a.week)), saved = p.reviews[it.k] || {}, r = ACT.rev[p.nrp + '|' + it.k] || { q: saved.q || '', i: saved.i || '', note: saved.note || '' };
-    const dirty = r.q !== (saved.q || '') || r.i !== (saved.i || '') || r.note !== (saved.note || '');
-    const pick = (f, lbl) => `<div class="actrv"><span class="mut small">${lbl}</span><div class="pipopts sm">${ACT_YPN.map(v => `<button data-act="act_rev" data-k="${it.k}" data-f="${f}" data-v="${v}" aria-pressed="${r[f] === v}">${v}</button>`).join('')}</div></div>`;
-    return `<div class="actit"><div class="actit-h"><div><b>${esc(it.t)}</b><div class="mut small">${esc(ACT_DOMAINS[p.role][it.d - 1][0])} · evidence: ${esc(it.ev)}</div></div><span class="mut small">${us.length} week${us.length === 1 ? '' : 's'} updated</span></div>
-      ${us.length ? us.map(u => `<div class="acthi"><span class="mut">Week of ${esc(actDay(u.week))} · ${esc(u.status || 'Noted')}</span><p>${esc(u.note)}</p>${u.link ? `<a href="${esc(u.link)}" target="_blank" rel="noopener">Evidence ↗</a>` : '<span class="mut small">No evidence link</span>'}</div>`).join('') : '<p class="mut small" style="margin:6px 0 0">No update yet.</p>'}
-      ${us.length ? `<div class="actrvrow">${pick('q', 'Done well?')}${pick('i', 'Led somewhere?')}</div>
-      <div class="xrow"><input class="xinput" style="flex:1" data-actr="${it.k}" value="${esc(r.note)}" placeholder="Short note for the candidate (optional)" aria-label="Note: ${esc(it.t)}"><button class="xbtn sm" data-act="act_revsave" data-k="${it.k}" ${ACT.busy || !dirty ? 'disabled' : ''}>Save</button></div>` : ''}</div>`; };
-  const dc = ACT.dec && ACT.dec.nrp === p.nrp ? ACT.dec : null, res = (p.report || {}).result || {}, fin = p.checks.final;
-  return `<div class="xstack acting"><div class="noprint"><button class="xbtn sm ghost" data-act="act_back">← All candidates</button></div>${actHeadHtml(p, d)}
-    ${actReportHtml(p, d, ld ? 'ld' : 'assessor')}
-    <details class="xcard tsec noprint"><summary><span class="tsec-t">Rate the deliverables</span><span class="mut small">${(p.report || {}).rated || 0} of ${items.length} rated · done well? led somewhere?</span><span class="tsec-c" aria-hidden="true"></span></summary><div class="tsec-b">
-      <p class="mut small" style="margin:0">Counts of FO, co-teach and mentoring are in the <a href="${ACT_TRACKER}" target="_blank" rel="noopener">Teacher Activity Tracker ↗</a>.</p>${items.map(item).join('')}</div></details>
-    <div class="noprint">${actChecksHtml(p, true)}</div>
-    ${ld ? `<section class="xcard noprint"><div class="thd"><h3 style="margin:0">Result: Pass or Not pass</h3><span class="mut small">${res.suggested ? 'By the rule: ' + esc(res.suggested) : 'After the final review'}</span></div>
-      ${dc ? `<div class="pipopts">${['Pass', 'Not pass'].map(r => `<button data-act="act_decpick" data-v="${r}" aria-pressed="${dc.decision === r}">${r}</button>`).join('')}</div>
-        ${fin && fin.scores ? `<div class="xrow"><div class="xfield"><label for="dc-a">360 adjustment</label><select class="xinput" id="dc-a" data-actd="adj">${[-0.2, -0.1, 0, 0.1, 0.2].map(x => `<option value="${x}" ${(+dc.adj || 0) === x ? 'selected' : ''}>${x > 0 ? '+' : ''}${x.toFixed(1)}</option>`).join('')}</select></div><span class="mut small">From your 360 review (done outside the LMS). Assessor's score ${Number((fin.total || 0) - (fin.adj || 0)).toFixed(2)} → final ${Number((fin.total || 0) - (fin.adj || 0) + (+dc.adj || 0)).toFixed(2)}</span></div>` : ''}
+  const ld = d.kind === 'ld', st = actStatus(p, d), r = p.report || {}, as = (p.assessors || []).map(x => x.name).join(', ');
+  const dc = ACT.dec && ACT.dec.nrp === p.nrp ? ACT.dec : null, res = r.result || {}, fin = p.checks.final;
+  return `<div class="xstack acting"><div class="noprint"><button class="xbtn sm ghost" data-act="act_back">← All candidates</button></div>
+    <section class="xcard"><div class="thd"><div><h3 style="margin:0">${esc(p.name)}</h3><div class="mut small">${esc(actRole(p.role))} · ${esc(shortC(p.center))}${as ? ' · assessor: ' + esc(as) : ''}</div></div>
+      <div class="xrow" style="gap:8px"><span class="xpill ${st.cls}">${esc(st.t)}${r.pct != null && !p.decision ? ' · ' + r.pct + '%' : ''}</span><button class="xbtn sm ghost noprint" data-act="act_print">Print or save as PDF</button></div></div></section>
+    ${actStepsHtml(p, d)}
+    ${actWeeksHtml(p, d, ld)}
+    <div class="actcols">${actChecksHtml(p, true)}
+    <div class="xstack">${actResultHtml(p, d)}
+    ${ld ? `<section class="xcard noprint"><div class="thd"><h3 style="margin:0">Pass or Not pass</h3><span class="mut small">${res.suggested ? 'By the rule: ' + esc(res.suggested) : 'After the final review'}</span></div>
+      ${dc ? `<div class="pipopts">${['Pass', 'Not pass'].map(x => `<button data-act="act_decpick" data-v="${x}" aria-pressed="${dc.decision === x}">${x}</button>`).join('')}</div>
+        ${fin && fin.scores ? `<div class="xrow"><div class="xfield"><label for="dc-a">360 adjustment</label><select class="xinput" id="dc-a" data-actd="adj">${[-0.2, -0.1, 0, 0.1, 0.2].map(x => `<option value="${x}" ${(+dc.adj || 0) === x ? 'selected' : ''}>${x > 0 ? '+' : ''}${x.toFixed(1)}</option>`).join('')}</select></div><span class="mut small">From your 360 form. Assessor's score ${Number((fin.total || 0) - (fin.adj || 0)).toFixed(2)} → final ${Number((fin.total || 0) - (fin.adj || 0) + (+dc.adj || 0)).toFixed(2)}</span></div>` : ''}
         ${dc.decision && res.suggested && dc.decision !== res.suggested ? '<p class="callout warn" style="margin:0">This is different from the rule. Write why in the note.</p>' : ''}
         <div class="xfield"><label for="dc-n">Note for the candidate</label><textarea class="xinput" id="dc-n" rows="2" data-actd="note">${esc(dc.note)}</textarea></div>
         <div class="xrow"><div class="xfield"><label for="dc-u">Access until</label><input class="xinput" type="date" id="dc-u" data-actd="until" value="${esc(dc.until)}"></div><span class="mut small">The candidate keeps the LMS until this date.</span></div>
         <div class="xrow"><button class="xbtn primary" data-act="act_decsave" ${ACT.busy || !dc.decision ? 'disabled' : ''}>Save and tell the candidate</button><button class="xbtn ghost" data-act="act_decclose">Cancel</button></div>`
-        : `<div class="xrow">${p.decision ? `<b>${esc(p.decision)}</b>` : `<span class="mut">${fin ? 'Final score ' + Number(fin.total).toFixed(2) + (res.suggested ? ' · by the rule: ' + esc(res.suggested) : '') : 'Waiting for the assessor’s final review'}</span>`}<button class="xbtn sm" data-act="act_decopen">${p.decision ? 'Change' : 'Decide'}</button></div>`}</section>` : ''}</div>`;
+        : `<div class="xrow">${p.decision ? `<b>${esc(p.decision)}</b>` : `<span class="mut">${fin ? 'Final score ' + Number(fin.total).toFixed(2) + (res.suggested ? ' · by the rule: ' + esc(res.suggested) : '') : 'Waiting for the assessor’s final review'}</span>`}<button class="xbtn sm" data-act="act_decopen">${p.decision ? 'Change' : 'Decide'}</button></div>
+        <p class="mut small" style="margin:0">The candidate gets the result and your note by e-mail.</p>`}</section>` : ''}</div></div></div>`;
 }
 function vActing(){
   if (!ACT.loaded){ if (!ACT.loading){ ACT.loading = true; loadActing().then(() => { ACT.loading = false; }); } return '<p class="muted">Loading…</p>'; }
@@ -6893,11 +6949,11 @@ function vActing(){
   const d = ACT.d;
   if (d.kind === 'candidate') return actCandidateHtml(d.people[0], d);
   if (!d.kind) return '<p class="muted">There are no acting candidates for you to assess right now.</p>';
+  if (ACT.queue && d.kind === 'ld') return actQueueHtml(d);
   const p = ACT.open && d.people.find(x => x.nrp === ACT.open);
   return p ? actDetailHtml(p, d) : actListHtml(d);
 }
 function actCur(){ const d = ACT.d; return d.kind === 'candidate' ? d.people[0] : d.people.find(x => x.nrp === ACT.open); }
-function actRevState(k){ const p = actCur(), key = p.nrp + '|' + k, s = p.reviews[k] || {}; return ACT.rev[key] = ACT.rev[key] || { q: s.q || '', i: s.i || '', note: s.note || '' }; }
 Object.assign(PERF_ACTS, {
   act_reload: () => { ACT.loaded = false; ACT.err = ''; rerender(); },
   act_remind: a => {
@@ -6910,14 +6966,22 @@ Object.assign(PERF_ACTS, {
       return api('actingRemind', JSON.stringify({ who })).then(t2 => { const r = JSON.parse(t2); ACT.busy = false; rerender(); toast(`Reminder sent (${r.sent} e-mail${r.sent === 1 ? '' : 's'})`); });
     }).catch(e => { ACT.busy = false; rerender(); toast((e && e.message) || String(e), true); });
   },
-  act_open: a => { ACT.open = a.dataset.v; ACT.chk = null; ACT.dec = null; rerender(false); window.scrollTo(0, 0); },
-  act_back: () => { ACT.open = ''; ACT.chk = null; ACT.dec = null; rerender(false); },
+  act_open: a => { ACT.open = a.dataset.v; ACT.queue = false; ACT.chk = null; ACT.dec = null; ACT.meet = null; rerender(false); window.scrollTo(0, 0); },
+  act_back: () => { ACT.open = ''; ACT.queue = false; ACT.qDone = {}; ACT.chk = null; ACT.dec = null; ACT.meet = null; rerender(false); },
+  act_queue: () => { ACT.queue = true; ACT.open = ''; ACT.qDone = {}; rerender(false); window.scrollTo(0, 0); },
+  act_q: a => { const { n, w, k, v } = a.dataset, p = ACT.d.people.find(x => x.nrp === n), u = p && p.updates.find(x => x.week === w && x.item === k); if (!u) return;
+    const key = n + '|' + w + '|' + k, rating = u.q && u.q.r === v ? '' : v, comment = ACT.q[key] != null ? ACT.q[key] : ((u.q && u.q.c) || '');
+    if (ACT.queue) ACT.qDone[key] = 1;
+    actCall({ action:'quality', nrp:n, week:w, item:k, rating, comment }, () => { delete ACT.q[key]; }); },
+  act_qsave: a => { const { n, w, k } = a.dataset, p = ACT.d.people.find(x => x.nrp === n), u = p && p.updates.find(x => x.week === w && x.item === k); if (!u || !u.q) return;
+    const key = n + '|' + w + '|' + k; actCall({ action:'quality', nrp:n, week:w, item:k, rating:u.q.r, comment:ACT.q[key] || '' }, () => { delete ACT.q[key]; toast('Comment saved'); }); },
+  act_meetopen: () => { const p = actCur(), m = p.meeting || {}; ACT.meet = { nrp:p.nrp, date:m.date || (p.due || {}).mid || '', start:m.start || '10:00', mins:m.mins || 30 }; rerender(); },
+  act_meetclose: () => { ACT.meet = null; rerender(); },
+  act_meetsave: () => { const f = ACT.meet; actCall({ action:'meet', nrp:f.nrp, date:f.date, start:f.start, mins:+f.mins || 30 }, () => { ACT.meet = null; toast('Meeting saved. Everyone has a calendar invite with the Meet link.'); }); },
   act_status: a => { const p = actCur(), v = actForm(p, ACT.d.week).items[a.dataset.k]; v.status = v.status === a.dataset.v ? '' : a.dataset.v; rerender(); },
   act_save: () => { const p = actCur(), f = actForm(p, ACT.d.week);
     actCall({ action:'update', nrp:p.nrp, items: Object.keys(f.items).filter(k => f.items[k].status || f.items[k].note || f.items[k].link).map(k => Object.assign({ item:k }, f.items[k])) }, () => { delete ACT.form[p.nrp]; toast('Saved. You can change it until Sunday.'); }); },
   act_stage: a => { const p = actCur(); if (+a.dataset.v !== p.stage) actCall({ action:'stage', nrp:p.nrp, stage:+a.dataset.v }); },
-  act_rev: a => { const r = actRevState(a.dataset.k); r[a.dataset.f] = r[a.dataset.f] === a.dataset.v ? '' : a.dataset.v; rerender(); },
-  act_revsave: a => { const p = actCur(), r = actRevState(a.dataset.k); actCall({ action:'review', nrp:p.nrp, item:a.dataset.k, quality:r.q, impact:r.i, note:r.note }, () => { delete ACT.rev[p.nrp + '|' + a.dataset.k]; }); },
   act_chkopen: a => { const p = actCur(), c = p.checks[a.dataset.v] || {}; ACT.chk = { nrp:p.nrp, which:a.dataset.v, note:c.note || '', gaps:c.gaps || '', scores:(c.scores || [0, 0, 0, 0, 0]).slice(), adj:c.adj || 0, rec:c.rec || '', logok:!!c.logok, d5ok:!!c.d5ok }; rerender(); },
   act_chkclose: () => { ACT.chk = null; rerender(); },
   act_rec: a => { ACT.chk.rec = a.dataset.v; rerender(); },
@@ -6931,10 +6995,12 @@ Object.assign(PERF_ACTS, {
 document.addEventListener('input', e => { const t = e.target, ds = t.dataset || {}; if (!ACT.d) return;
   if (ds.actf){ const [k, f] = ds.actf.split('|'), p = actCur(); if (!p) return; const was = !!(actForm(p, ACT.d.week).items[k].note); actForm(p, ACT.d.week).items[k][f] = t.value;
     const btn = document.querySelector('[data-act="act_save"]'); if (btn && !ACT.busy) btn.disabled = false; return; }
-  if (ds.actr){ const r = actRevState(ds.actr); r.note = t.value; const b = document.querySelector(`[data-act="act_revsave"][data-k="${ds.actr}"]`); if (b && !ACT.busy) b.disabled = false; return; }
+  if (ds.actq){ ACT.q[ds.actq] = t.value; const [n, w, k] = ds.actq.split('|'), b = document.querySelector(`[data-act="act_qsave"][data-n="${n}"][data-w="${w}"][data-k="${k}"]`), u = (ACT.d.people.find(x => x.nrp === n) || { updates: [] }).updates.find(x => x.week === w && x.item === k);
+    if (b && !ACT.busy) b.disabled = !(u && u.q && u.q.r) || t.value === ((u.q && u.q.c) || ''); return; }
+  if (ds.actm && ACT.meet){ ACT.meet[ds.actm] = t.value; const b = document.querySelector('[data-act="act_meetsave"]'); if (b && !ACT.busy) b.disabled = !ACT.meet.date || !ACT.meet.start; return; }
   if (ds.actc && ACT.chk && t.tagName !== 'SELECT'){ ACT.chk[ds.actc] = t.value; return; }
   if (ds.actd && ACT.dec){ ACT.dec[ds.actd] = t.value; if (ds.actd === 'adj') rerender(); } });
-document.addEventListener('change', e => { const t = e.target, ds = t.dataset || {}; if (!ACT.chk) return;
+document.addEventListener('change', e => { const t = e.target, ds = t.dataset || {}; if (ds.actm && ACT.meet){ ACT.meet[ds.actm] = t.value; return; } if (!ACT.chk) return;
   if (ds.actcs != null){ ACT.chk.scores[+ds.actcs] = +t.value || 0; rerender(); }
   else if (ds.actcb){ ACT.chk[ds.actcb] = t.checked; }
   else if (ds.actc === 'adj'){ ACT.chk.adj = +t.value || 0; rerender(); } });
@@ -7127,6 +7193,41 @@ load();
 .t2 .actwho-r{display:grid;grid-template-columns:minmax(160px,1fr) 2fr minmax(180px,1.2fr);gap:10px;padding:8px 0;border-top:1px solid var(--line,#dde6e0)}
 @media (max-width:700px){.t2 .actwho-r{grid-template-columns:1fr}}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .t2 .actwk.miss{background:#4a1f18;color:#f3c1b6}}
+.t2 .acting .eyebrow{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.t2 .actov-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.t2 .actkpi{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:14px}.t2 .actkpi>div{background:var(--bg);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:2px}.t2 .actkpi b{font-size:24px}.t2 .actkpi span{font-size:12.5px;color:var(--muted)}
+@media(max-width:760px){.t2 .actkpi{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.t2 .actjr{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}.t2 .actjr li{display:flex;flex-direction:column;gap:3px}
+.t2 .actjr-bar{height:6px;border-radius:999px;background:var(--line);overflow:hidden;margin-bottom:6px}.t2 .actjr-bar>div{height:100%;background:var(--green)}.t2 .actjr-bar>div.bad{background:var(--green)}.t2 .actjr-bar>div.blue{background:#3b66b0}
+@media(max-width:900px){.t2 .actjr{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.t2 .actc{display:inline-block;min-width:38px;text-align:center;font-size:12.5px;font-weight:600;padding:5px 4px;border-radius:8px;background:var(--bg);color:var(--muted)}
+.t2 .actc.ok{background:var(--good-soft);color:var(--good)}.t2 .actc.half{background:var(--warn-soft);color:var(--warn)}.t2 .actc.miss{background:var(--bad-soft);color:var(--bad)}.t2 .actc.now{background:var(--card);border:1px dashed var(--line-strong);color:var(--muted)}.t2 .actc.fut{background:transparent;color:var(--line-strong)}
+.t2 .actt .actcw{text-align:center;padding-left:3px;padding-right:3px}.t2 .actqc{display:flex;flex-direction:column;line-height:1.35;white-space:nowrap}
+.t2 .actck-c{display:inline-flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:7px;font-size:12px;font-weight:700;margin-right:4px;background:var(--bg);color:var(--muted)}
+.t2 .actck-c.done{background:var(--good-soft);color:var(--good)}.t2 .actck-c.late{background:var(--bad-soft);color:var(--bad)}.t2 .actck-c.set{background:#e6eefb;color:#234a8a}
+.t2 .actwarn{color:var(--warn);font-weight:600}.t2 .actblue{color:#234a8a}
+.t2 .actsteps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}.t2 .actsteps li{display:flex;flex-direction:column;gap:3px}.t2 .actsteps li .small{color:var(--muted)}
+.t2 .actsteps-n{width:26px;height:26px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:var(--bg);color:var(--muted);flex:0 0 auto}
+.t2 .actsteps li.done .actsteps-n,.t2 .actjv li.done .actsteps-n{background:var(--green);color:var(--on-green)}.t2 .actsteps li.now .actsteps-n,.t2 .actjv li.now .actsteps-n{background:var(--good-soft);color:var(--good)}
+.t2 .actsteps li.set .actsteps-n,.t2 .actjv li.set .actsteps-n{background:#e6eefb;color:#234a8a}.t2 .actsteps li.late .actsteps-n,.t2 .actjv li.late .actsteps-n{background:var(--bad-soft);color:var(--bad)}
+.t2 .actsteps li.late .small{color:var(--bad)}.t2 .actsteps li.set .small{color:#234a8a}.t2 .actsteps li.done .small,.t2 .actsteps li.now .small{color:var(--good)}
+@media(max-width:900px){.t2 .actsteps{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:520px){.t2 .actsteps{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.t2 .actjv{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}.t2 .actjv li{display:flex;gap:10px;align-items:flex-start}
+.t2 .actwbox{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:10px}.t2 .actwbox-h{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.t2 .actq{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,320px);gap:14px;align-items:start;padding-top:10px;margin-top:10px;border-top:1px solid var(--line)}
+.t2 .actq-l{display:flex;flex-direction:column;gap:2px;font-size:14px}.t2 .actq-l p{margin:2px 0;white-space:pre-wrap}.t2 .actq-l a{font-size:13px;color:var(--green-ink)}.t2 .actq-r{display:flex;flex-direction:column;gap:6px}.t2 .actq-r p{margin:0}
+.t2 .actq-r .xinput{flex:1;min-width:0}@media(max-width:700px){.t2 .actq{grid-template-columns:1fr}}
+.t2 .actcols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}@media(max-width:900px){.t2 .actcols{grid-template-columns:1fr}}
+.t2 .actmeet{background:#eef3fb;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;margin:10px 0}.t2 .actmeet>b{color:#234a8a}.t2 .actmeet.none{background:var(--bg)}.t2 .actmeet.none>b{color:var(--ink)}.t2 .actmeet.edit{background:var(--bg)}
+.t2 .actjoin{background:#234a8a!important;color:#fff!important;border-color:#234a8a!important;text-decoration:none;min-height:40px;display:inline-flex;align-items:center}
+.t2 .actres-t{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.t2 .actres-t>div{background:var(--bg);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column}.t2 .actres-t span{font-size:12.5px;color:var(--muted)}.t2 .actres-t b{font-size:18px}.t2 .actres-t .ok b{color:var(--good)}.t2 .actres-t .bad b{color:var(--bad)}
+.t2 .actstat{display:flex;flex-direction:column;gap:4px}.t2 .callout.good{background:var(--green-soft);border-color:var(--green)}
+.t2 .actprog{display:flex;flex-direction:column;gap:4px;margin-top:6px}.t2 .actprog-t{height:8px;border-radius:999px;background:var(--line);overflow:hidden}.t2 .actprog-t>div{height:100%;background:var(--green)}
+.t2 .actbars{display:flex;gap:8px;align-items:flex-end}.t2 .actbar{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}.t2 .actbar-t{width:100%;height:80px;background:var(--bg);border-radius:8px;display:flex;align-items:flex-end;overflow:hidden}.t2 .actbar-t>div{width:100%;background:var(--green);border-radius:8px 8px 0 0}
+.t2 .actbar.half .actbar-t>div{background:#d9a62e}.t2 .actbar.miss .actbar-t>div{background:#c4533f}.t2 .actbar.now .actbar-t>div{background:var(--line-strong)}.t2 .actbar-v{font-size:11.5px;font-weight:600;color:var(--muted);white-space:nowrap}.t2 .actbar.ok .actbar-v{color:var(--good)}.t2 .actbar.miss .actbar-v{color:var(--bad)}.t2 .actbar.half .actbar-v{color:var(--warn)}.t2 .actbar-w{font-size:12px;color:var(--muted)}
+.t2 .actfb{display:flex;flex-direction:column;gap:2px;padding:10px 0;border-top:1px solid var(--line);font-size:14px}.t2 .actfb:first-of-type{border-top:0}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .t2 .actmeet{background:#1a2638}:root:not([data-theme="light"]) .t2 .actmeet>b,:root:not([data-theme="light"]) .t2 .actblue{color:#a9c4f0}:root:not([data-theme="light"]) .t2 .actck-c.set,:root:not([data-theme="light"]) .t2 .actsteps li.set .actsteps-n{background:#1a2638;color:#a9c4f0}:root:not([data-theme="light"]) .t2 .actmeet.none,:root:not([data-theme="light"]) .t2 .actmeet.edit{background:var(--bg)}}
+
 .t2 .ldchg .ldpick{width:18px;height:18px;margin:2px 10px 0 0;flex:none}.t2 .ldbulk{gap:10px;align-items:center;flex-wrap:wrap}
 .t2 .wkm-kpi{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:12px}@media (max-width:900px){.t2 .wkm-kpi{grid-template-columns:repeat(3,minmax(0,1fr))}}@media (max-width:480px){.t2 .wkm-kpi{grid-template-columns:repeat(2,minmax(0,1fr))}}.t2 .wkm-kpi .xkpi small{font-size:.55em;color:var(--muted);font-weight:600}
 .t2 .wkm-sec{margin-bottom:12px;display:grid;gap:8px}.t2 .wkm-head{margin:0;font-size:14px}
